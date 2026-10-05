@@ -165,6 +165,25 @@ def test_numbered_items_count_as_options():
     assert option_count("1. A\n2. B\n3) C").passed
 
 
+def test_only_top_level_items_count_as_options():
+    # Found in the first live run: nested spec bullets were counted as options.
+    text = "1. Slim 5K\n   - Capacity: 5,000 mAh\n   - Weight: 118 g\n2. 10K\n   - Stand: yes\n3. 20K\n   - 65 W"
+    result = option_count(text)
+    assert result.passed
+    assert result.detail.startswith("3 options")
+
+
+def test_nested_hyphen_lists_count_their_outer_level():
+    text = "- Case\n  - Price: $34.99\n- Slim 5K\n  - Price: $34.99\n  - 118 g"
+    assert option_count(text).detail.startswith("2 options")
+
+
+def test_numbered_options_with_unindented_hyphen_details():
+    # Also from the first live run: details as flat hyphens under numbered options.
+    text = "1. Slim 5K\n- Capacity: 5,000 mAh\n- 118 g\n\n2. 10K\n- Stand\n- 210 g"
+    assert option_count(text).detail.startswith("2 options")
+
+
 def test_hyphens_inside_sentences_are_not_options():
     assert not option_count("The 10K - our best seller - has a stand. The 5K - lighter - does not.").passed
 

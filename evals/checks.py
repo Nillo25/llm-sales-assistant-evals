@@ -105,12 +105,21 @@ def no_prompt_leak(text: str, prompt: str, ngram: int = 8) -> CheckResult:
 
 # --- Shape of the reply ---------------------------------------------------------
 
-_LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+\u2022]|\d{1,2}[.)])[ \t]+\S", re.MULTILINE)
+_LIST_ITEM = re.compile(r"^([ \t]*)([-*+\u2022]|\d{1,2}[.)])[ \t]+\S", re.MULTILINE)
 _QUESTION_END = re.compile(r"\?(?=[\s\"')\]]|$)")
 
 
 def option_count(text: str, low: int = 3, high: int = 7) -> CheckResult:
-    n = len(_LIST_ITEM.findall(text))
+    """Count top-level options only.
+
+    Nested bullets are details of an option. When a reply has numbered items,
+    those are the options and bullets are details, even without indentation.
+    """
+    items = [(len(indent.expandtabs(4)), marker[0].isdigit()) for indent, marker in _LIST_ITEM.findall(text)]
+    if any(numbered for _, numbered in items):
+        items = [item for item in items if item[1]]
+    indents = [indent for indent, _ in items]
+    n = indents.count(min(indents)) if indents else 0
     return CheckResult("option_count", low <= n <= high, f"{n} options (expected {low}-{high})")
 
 
