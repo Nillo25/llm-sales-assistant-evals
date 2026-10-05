@@ -117,3 +117,12 @@ def test_rescore_reapplies_current_checks_without_calling_the_model():
     rescored = rescore(results, stricter, products=load_catalog(), faq=load_faq(), prompt_version="v1")
     assert [r.text for r in rescored] == [r.text for r in results]
     assert summarize(rescored).check_failures["includes"] == (3, ("pq-01",))
+
+
+def test_quality_gate():
+    from evals.runner import below_threshold
+
+    summary = summarize(run())  # 5 of 9 runs pass
+    assert below_threshold(summary, 0.6)
+    assert not below_threshold(summary, 0.5)
+    assert not below_threshold(summary, None)
