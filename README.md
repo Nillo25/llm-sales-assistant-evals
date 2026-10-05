@@ -309,7 +309,8 @@ Two more lessons from this comparison:
 
 - [`tests.yml`](.github/workflows/tests.yml): unit tests on every push and pull request, no API calls.
 - [`evals.yml`](.github/workflows/evals.yml): the live suite on demand (model, prompt, runs,
-  quality gate, optional judge pass) and every Monday with the defaults. The report goes to
+  quality gate, optional judge pass). It is manual only, since every run calls a paid API;
+  a weekly `schedule` trigger is a one-line addition. The report goes to
   the job summary and is uploaded as an artifact; the job fails when the overall pass rate
   is below the gate (`--fail-under`, default 0.75).
 

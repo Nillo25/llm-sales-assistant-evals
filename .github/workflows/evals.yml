@@ -1,5 +1,6 @@
 name: evals
 
+# Manual only: every run calls a paid API.
 on:
   workflow_dispatch:
     inputs:
@@ -19,8 +20,6 @@ on:
         description: Also score run 1 with the LLM judge (slower, about $0.5)
         type: boolean
         default: false
-  schedule:
-    - cron: "0 6 * * 1"  # Mondays 06:00 UTC, default settings, no judge
 
 permissions:
   contents: read
