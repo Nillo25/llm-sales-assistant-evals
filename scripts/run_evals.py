@@ -56,7 +56,7 @@ def write_outputs(out: Path, stem: str, meta: RunMeta, results) -> None:
     raw_path = out / "raw" / f"{stem}.json"
     raw_path.write_text(json.dumps(dump_run(meta, results), indent=2), encoding="utf-8")
     print(f"Pass rate: {summary.passed_runs}/{summary.total_runs} runs, API errors: {summary.errors}")
-    print(f"Report: {report_path.relative_to(ROOT)}\nRaw:    {raw_path.relative_to(ROOT)}")
+    print(f"Report: {report_path}\nRaw:    {raw_path}")
 
 
 def main(argv=None) -> int:

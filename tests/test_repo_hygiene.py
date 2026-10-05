@@ -36,3 +36,10 @@ def test_repository_text_files_are_ascii():
         str(path.relative_to(ROOT)): lines for path in text_files() if (lines := non_ascii_lines(path))
     }
     assert not offenders, f"non-ASCII characters in {offenders}"
+
+
+def test_deepeval_pytest_plugin_is_disabled(pytestconfig):
+    # DeepEval's auto-loaded pytest plugin reports telemetry at session start,
+    # before any code here can opt out. The suite calls metrics directly and
+    # does not need the plugin.
+    assert not pytestconfig.pluginmanager.has_plugin("deepeval")

@@ -10,4 +10,4 @@ pythonpath = ["."]
 markers = [
     "llm: calls a real LLM API (costs money); opt in with `pytest -m llm`",
 ]
-addopts = "-m 'not llm'"
+addopts = "-m 'not llm' -p no:deepeval"

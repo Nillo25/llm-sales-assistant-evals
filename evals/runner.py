@@ -1,6 +1,5 @@
 """Run the eval suite N times per case, aggregate pass rates, render a report."""
 import re
-import unicodedata
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field, replace
@@ -8,6 +7,7 @@ from dataclasses import asdict, dataclass, field, replace
 from evals.cases import CATEGORIES, EvalCase, Suite
 from evals.checks import CheckResult
 from evals.evaluate import evaluate
+from evals.text import ascii_fold, excerpt
 from sales_assistant.assistant import answer
 from sales_assistant.catalog import FaqItem, Product
 from sales_assistant.client import Responder
@@ -219,24 +219,8 @@ def load_run(data: dict) -> tuple[RunMeta, list[RunResult]]:
     return RunMeta(**data["meta"]), results
 
 
-_PUNCT = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2013": "-", "\u2014": "-",
-                        "\u2026": "...", "\u00a0": " ", "\u2022": "-"})
-
-
-def _ascii(text: str) -> str:
-    """Model replies may contain typographic characters; reports stay plain ASCII."""
-    folded = unicodedata.normalize("NFKD", text.translate(_PUNCT))
-    folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
-    return folded.encode("ascii", "backslashreplace").decode("ascii")
-
-
 def _rate(passed: int, total: int) -> str:
     return f"{100 * passed / total:.1f}% ({passed}/{total})" if total else "n/a"
-
-
-def _excerpt(text: str, limit: int = 280) -> str:
-    flat = " ".join(text.split())
-    return flat if len(flat) <= limit else flat[: limit - 3] + "..."
 
 
 def render_report(summary: Summary, meta: RunMeta) -> str:
@@ -290,6 +274,6 @@ def render_report(summary: Summary, meta: RunMeta) -> str:
         for r in c.failing:
             details = "; ".join(f"{k.name}: {k.detail}" if k.detail else k.name for k in r.failed_checks)
             lines.append(f"- Run {r.run}: {details}")
-            lines.append(f"  > {_excerpt(r.text)}")
+            lines.append(f"  > {excerpt(r.text)}")
         lines.append("")
-    return _ascii("\n".join(lines).rstrip() + "\n")
+    return ascii_fold("\n".join(lines).rstrip() + "\n")
