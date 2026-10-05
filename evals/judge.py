@@ -21,8 +21,13 @@ from evals.text import ascii_fold, excerpt
 from sales_assistant.catalog import FaqItem, Product
 from sales_assistant.retriever import Context, build_context
 
-# DeepEval sends anonymous usage telemetry unless this is set before it is imported.
+# DeepEval reads these when it is first imported, so they are set here.
+# Telemetry: DeepEval sends anonymous usage data unless opted out.
 os.environ.setdefault("DEEPEVAL_TELEMETRY_OPT_OUT", "1")
+# Timeouts: a judge call normally takes 1-5 s, but an occasional request hangs, and the default
+# 88 s per attempt with 2 attempts stalled whole runs. Fail fast and retry instead.
+os.environ.setdefault("DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE", "30")
+os.environ.setdefault("DEEPEVAL_RETRY_MAX_ATTEMPTS", "4")
 
 _ON_MERITS = ("faithfulness", "answers_question", "no_invented_facts")
 METRICS_BY_CATEGORY = {
