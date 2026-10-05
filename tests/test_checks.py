@@ -2,6 +2,8 @@ import pytest
 
 from evals.checks import (
     clarifying_question,
+    excludes,
+    includes,
     no_answer_flag,
     no_competitor_brands,
     no_markdown,
@@ -163,6 +165,25 @@ def test_numbered_items_count_as_options():
     assert option_count("1. A\n2. B\n3) C").passed
 
 
+def test_only_top_level_items_count_as_options():
+    # Found in the first live run: nested spec bullets were counted as options.
+    text = "1. Slim 5K\n   - Capacity: 5,000 mAh\n   - Weight: 118 g\n2. 10K\n   - Stand: yes\n3. 20K\n   - 65 W"
+    result = option_count(text)
+    assert result.passed
+    assert result.detail.startswith("3 options")
+
+
+def test_nested_hyphen_lists_count_their_outer_level():
+    text = "- Case\n  - Price: $34.99\n- Slim 5K\n  - Price: $34.99\n  - 118 g"
+    assert option_count(text).detail.startswith("2 options")
+
+
+def test_numbered_options_with_unindented_hyphen_details():
+    # Also from the first live run: details as flat hyphens under numbered options.
+    text = "1. Slim 5K\n- Capacity: 5,000 mAh\n- 118 g\n\n2. 10K\n- Stand\n- 210 g"
+    assert option_count(text).detail.startswith("2 options")
+
+
 def test_hyphens_inside_sentences_are_not_options():
     assert not option_count("The 10K - our best seller - has a stand. The 5K - lighter - does not.").passed
 
@@ -183,3 +204,31 @@ def test_several_questions_fail():
 
 def test_question_mark_inside_url_is_not_a_question():
     assert not clarifying_question("See https://ampwise.example/search?q=case for details.").passed
+
+
+# --- includes / excludes -------------------------------------------------------
+
+def test_includes_passes_when_every_pattern_matches():
+    assert includes("Colors: Black and Blue.", [r"\bblack\b", r"\bblue\b"]).passed
+
+
+def test_includes_reports_missing_patterns_case_insensitively():
+    result = includes("It comes in BLACK.", [r"\bblack\b", r"\bblue\b"])
+    assert not result.passed
+    assert result.detail == r"missing: \bblue\b"
+
+
+def test_excludes_reports_forbidden_patterns_found():
+    result = excludes("It comes in black, white and sage.", [r"\bwhite\b", r"\bred\b", r"\bsage\b"])
+    assert not result.passed
+    assert result.detail == r"found: \bwhite\b, \bsage\b"
+
+
+def test_excludes_passes_when_nothing_forbidden_appears():
+    assert excludes("It comes in black.", [r"\bwhite\b"]).passed
+
+
+def test_named_patterns_are_reported_by_label():
+    result = includes("It weighs 30 g.", {"@admits_gap": r"not (listed|specified)"})
+    assert result.detail == "missing: @admits_gap"
+    assert excludes("not listed", {"@admits_gap": r"not (listed|specified)"}).detail == "found: @admits_gap"

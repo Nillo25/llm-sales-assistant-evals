@@ -5,6 +5,7 @@ so the context it receives must be reproducible run to run. Like the
 production assistant, it looks only at the latest customer message.
 """
 import re
+from dataclasses import dataclass
 
 from sales_assistant.catalog import FaqItem, Product, render_faq, render_overview, render_product
 
@@ -53,12 +54,22 @@ def retrieve(question: str, products: list[Product], k: int = 5) -> list[Product
     return [p for _, _, p in ranked[:k]]
 
 
-def build_context(question: str, products: list[Product], faq: list[FaqItem], k: int = 5) -> tuple[str, str]:
-    """Return (faq_context, catalog_context) for the payload.
+@dataclass(frozen=True)
+class Context:
+    faq: str
+    catalog: str
+    skus: tuple[str, ...]  # retrieved products; empty when the overview was used
+
+    def as_text(self) -> str:
+        return f"FAQ:\n{self.faq}\n\nProduct catalog:\n{self.catalog}"
+
+
+def build_context(question: str, products: list[Product], faq: list[FaqItem], k: int = 5) -> Context:
+    """Grounding context for the payload.
 
     The whole FAQ is always included. The catalog part holds the matching
     products in full, or a name-only overview when nothing matches.
     """
     hits = retrieve(question, products, k=k)
-    catalog_context = "\n\n".join(render_product(p) for p in hits) if hits else render_overview(products)
-    return render_faq(faq), catalog_context
+    catalog = "\n\n".join(render_product(p) for p in hits) if hits else render_overview(products)
+    return Context(faq=render_faq(faq), catalog=catalog, skus=tuple(p.sku for p in hits))

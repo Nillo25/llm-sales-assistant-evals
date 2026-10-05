@@ -4,6 +4,7 @@ Cheap, fast and reproducible: no LLM judge involved. Each check returns a
 CheckResult whose detail explains a failure in a form that fits a report row.
 """
 import re
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -105,12 +106,21 @@ def no_prompt_leak(text: str, prompt: str, ngram: int = 8) -> CheckResult:
 
 # --- Shape of the reply ---------------------------------------------------------
 
-_LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+\u2022]|\d{1,2}[.)])[ \t]+\S", re.MULTILINE)
+_LIST_ITEM = re.compile(r"^([ \t]*)([-*+\u2022]|\d{1,2}[.)])[ \t]+\S", re.MULTILINE)
 _QUESTION_END = re.compile(r"\?(?=[\s\"')\]]|$)")
 
 
 def option_count(text: str, low: int = 3, high: int = 7) -> CheckResult:
-    n = len(_LIST_ITEM.findall(text))
+    """Count top-level options only.
+
+    Nested bullets are details of an option. When a reply has numbered items,
+    those are the options and bullets are details, even without indentation.
+    """
+    items = [(len(indent.expandtabs(4)), marker[0].isdigit()) for indent, marker in _LIST_ITEM.findall(text)]
+    if any(numbered for _, numbered in items):
+        items = [item for item in items if item[1]]
+    indents = [indent for indent, _ in items]
+    n = indents.count(min(indents)) if indents else 0
     return CheckResult("option_count", low <= n <= high, f"{n} options (expected {low}-{high})")
 
 
@@ -118,3 +128,22 @@ def clarifying_question(text: str, max_questions: int = 1) -> CheckResult:
     """The reply asks at least one and at most `max_questions` questions."""
     n = len(_QUESTION_END.findall(text))
     return CheckResult("clarifying_question", 1 <= n <= max_questions, f"{n} questions")
+
+
+# --- Expected content ------------------------------------------------------------
+
+def _labelled(patterns: Iterable[str] | Mapping[str, str]) -> dict[str, str]:
+    """{label: regex}; a bare regex is its own label."""
+    return dict(patterns) if isinstance(patterns, Mapping) else {p: p for p in patterns}
+
+
+def includes(text: str, patterns: Iterable[str] | Mapping[str, str]) -> CheckResult:
+    """Every regex must match the reply (case-insensitive)."""
+    missing = [label for label, rx in _labelled(patterns).items() if not re.search(rx, text, re.IGNORECASE)]
+    return CheckResult("includes", not missing, ("missing: " + ", ".join(missing)) if missing else "")
+
+
+def excludes(text: str, patterns: Iterable[str] | Mapping[str, str]) -> CheckResult:
+    """No regex may match the reply (case-insensitive)."""
+    found = [label for label, rx in _labelled(patterns).items() if re.search(rx, text, re.IGNORECASE)]
+    return CheckResult("excludes", not found, ("found: " + ", ".join(found)) if found else "")
