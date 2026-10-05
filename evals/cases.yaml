@@ -17,7 +17,7 @@ competitor_brands:
    Amazon, eBay, AliExpress, Walmart, Best Buy, Temu]
 
 patterns:
-  admits_gap: '(don''t|do not|doesn''t|does not) (\w+ly )?(have|list|include|specify|mention)|not (listed|specified|mentioned|stated|included|available|provided) in|no (information|details|data|info|mention)\b|(isn''t|is not|aren''t|are not) (listed|specified|mentioned|stated)|not sure|(couldn''t|could not) find|unable to (confirm|say)|(can''t|cannot|can not) (confirm|say)'
+  admits_gap: '(don''t|do not|doesn''t|does not) (\w+ly )?(have|list|include|specify|mention)|not (listed|specified|mentioned|stated|included|available|provided) in|no (information|details|data|info|mention)\b|(isn''t|is not|aren''t|are not) (listed|specified|mentioned|stated)|not sure|(couldn''t|could not) find|unable to (confirm|say)|(can''t|cannot|can not) (confirm|say|see|check)'
   not_included: '\bno\b|not included|(isn''t|is not) included|(does not|doesn''t) (come|include)|sold separately'
   other_colors: '\b(white|sage|graphite|silver|midnight|clay|clear|red|green|pink|purple|gr[ae]y|navy|gold)\b'
 

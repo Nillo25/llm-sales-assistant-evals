@@ -59,3 +59,9 @@ def test_named_patterns_are_resolved_and_reported_by_name():
     case = EvalCase(id="x", category="missing_info", question="Plug?", expect=Expectations(includes=("@gap",)))
     assert run(case, "The plug type is not listed.")["includes"].passed
     assert run(case, "It has a UK plug.")["includes"].detail == "missing: @gap"
+
+
+def test_typographic_apostrophes_do_not_break_patterns():
+    # Found when comparing models: gpt-5.4-mini writes "can\u2019t", gpt-4.1-mini mostly "can't".
+    case = EvalCase(id="x", category="missing_info", question="UK plug?", expect=Expectations(includes=(r"can't confirm",)))
+    assert run(case, "I can\u2019t confirm a UK plug.")["includes"].passed

@@ -12,6 +12,7 @@ from evals.checks import (
     option_count,
     prices_grounded,
 )
+from evals.text import normalize_punctuation
 
 
 def evaluate(
@@ -29,6 +30,8 @@ def evaluate(
     repeating a figure the customer or the assistant already stated is not
     making one up.
     """
+    # Models differ in typography (can't vs can\u2019t); checks should not.
+    text = normalize_punctuation(text)
     known_prices = "\n".join([context, case.question, *(t for _, t in case.history)])
     results = [
         no_markdown(text),
