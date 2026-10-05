@@ -39,6 +39,7 @@ def test_answer_sends_retrieved_context_history_and_model():
     assert payload["model"] == "gpt-test"
     assert [m["role"] for m in payload["input"]] == ["system", "user", "assistant", "user"]
     assert "AW-PB-10M" in turn.context
+    assert turn.retrieved[0] == "AW-PB-10M"
     assert turn.context in payload["input"][0]["content"][0]["text"]
     assert turn.reply.input_tokens == 100
 

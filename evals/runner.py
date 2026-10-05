@@ -25,6 +25,7 @@ class RunResult:
     text: str = ""
     is_non_answer: bool = False
     checks: tuple[CheckResult, ...] = ()
+    retrieved: tuple[str, ...] = ()
     error: str = ""
     input_tokens: int = 0
     output_tokens: int = 0
@@ -54,6 +55,7 @@ def _run_once(case: EvalCase, run: int, suite: Suite, prompt: str, **kwargs) -> 
         text=turn.text,
         is_non_answer=turn.is_non_answer,
         checks=tuple(checks),
+        retrieved=turn.retrieved,
         input_tokens=turn.reply.input_tokens,
         output_tokens=turn.reply.output_tokens,
         latency_s=turn.reply.latency_s,
@@ -88,6 +90,7 @@ class CaseSummary:
     passed_runs: int = 0
     total_runs: int = 0
     errors: int = 0
+    retrieved: tuple[str, ...] = ()
     failing: list[RunResult] = field(default_factory=list)
 
 
@@ -125,6 +128,7 @@ def summarize(results: list[RunResult]) -> Summary:
             cs.errors += 1
             continue
         cs.total_runs += 1
+        cs.retrieved = r.retrieved  # retrieval is deterministic: the same for every run
         if r.passed:
             cs.passed_runs += 1
         else:
@@ -233,7 +237,14 @@ def render_report(summary: Summary, meta: RunMeta) -> str:
     if not failing:
         lines.append("None.")
     for c in failing:
-        lines += [f"### {c.case_id} ({c.category}): {c.passed_runs}/{c.total_runs}", "", f"Question: {c.question}", ""]
+        retrieved = ", ".join(c.retrieved) if c.retrieved else "none (catalog overview)"
+        lines += [
+            f"### {c.case_id} ({c.category}): {c.passed_runs}/{c.total_runs}",
+            "",
+            f"Question: {c.question}",
+            f"Retrieved: {retrieved}",
+            "",
+        ]
         if c.errors:
             lines.append(f"- API errors: {c.errors}")
         for r in c.failing:

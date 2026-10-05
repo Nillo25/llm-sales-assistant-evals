@@ -85,6 +85,7 @@ def test_report_shows_meta_categories_failed_checks_and_failing_cases():
     assert "| no_competitor_brands | 3 | co-01 |" in report
     assert "### co-01 (competitor): 0/3" in report
     assert "found: Anker" in report
+    assert "Retrieved: none (catalog overview)" in report
     assert "pq-01" not in report.split("## Cases with failures")[1]
 
 

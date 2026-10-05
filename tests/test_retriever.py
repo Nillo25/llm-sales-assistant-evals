@@ -37,12 +37,14 @@ def test_k_limits_the_number_of_results():
 
 
 def test_context_holds_full_faq_and_matching_products():
-    faq_context, catalog_context = build_context("Do you have a 10K power bank?", CATALOG, FAQ)
-    assert faq_context == render_faq(FAQ)
+    context = build_context("Do you have a 10K power bank?", CATALOG, FAQ)
+    assert context.faq == render_faq(FAQ)
     by_sku = {p.sku: p for p in CATALOG}
-    assert catalog_context.startswith(render_product(by_sku["AW-PB-10M"]))
+    assert context.catalog.startswith(render_product(by_sku["AW-PB-10M"]))
+    assert context.skus[0] == "AW-PB-10M"
 
 
 def test_context_falls_back_to_overview_when_nothing_matches():
-    _, catalog_context = build_context("Hi there!", CATALOG, FAQ)
-    assert catalog_context == render_overview(CATALOG)
+    context = build_context("Hi there!", CATALOG, FAQ)
+    assert context.catalog == render_overview(CATALOG)
+    assert context.skus == ()

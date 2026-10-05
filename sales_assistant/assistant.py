@@ -13,6 +13,7 @@ class Turn:
     text: str
     is_non_answer: bool
     context: str
+    retrieved: tuple[str, ...]
     reply: ModelReply
 
 
@@ -26,15 +27,16 @@ def answer(
     model: str,
     prompt_version: str = "v1",
 ) -> Turn:
-    faq_context, catalog_context = build_context(question, products, faq)
+    context = build_context(question, products, faq)
     payload = build_payload(
-        question, faq_context, catalog_context, list(history), model=model, prompt_version=prompt_version
+        question, context.faq, context.catalog, list(history), model=model, prompt_version=prompt_version
     )
     reply = responder(payload)
     text, is_non_answer = split_no_answer_marker(reply.raw)
     return Turn(
         text=text,
         is_non_answer=is_non_answer,
-        context=f"FAQ:\n{faq_context}\n\nProduct catalog:\n{catalog_context}",
+        context=f"FAQ:\n{context.faq}\n\nProduct catalog:\n{context.catalog}",
+        retrieved=context.skus,
         reply=reply,
     )
