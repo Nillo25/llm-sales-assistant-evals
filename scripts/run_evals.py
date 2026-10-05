@@ -36,6 +36,7 @@ from evals.runner import (  # noqa: E402
 from sales_assistant.catalog import load_catalog, load_faq  # noqa: E402
 from sales_assistant.client import OpenAIResponder  # noqa: E402
 from sales_assistant.prompts import available_prompts  # noqa: E402
+from sales_assistant.retriever import RETRIEVAL_VERSION  # noqa: E402
 
 
 def parse_args(argv=None):
@@ -95,7 +96,7 @@ def main(argv=None) -> int:
 
 
 def stem_for(args, meta: RunMeta) -> str:
-    stem = f"{meta.started_at[:10]}_{meta.model}_{meta.prompt_version}"
+    stem = f"{meta.started_at[:10]}_{meta.model}_{meta.prompt_version}_{meta.retrieval}"
     return stem + (f"_{args.cases.replace(',', '+')}" if args.cases else "")
 
 
@@ -113,7 +114,7 @@ def run_config(args, suite: Suite, model: str, prompt: str):
         products=load_catalog(),
         faq=load_faq(),
     )
-    meta = RunMeta(model, prompt, args.runs, f"{started:%Y-%m-%d %H:%M} UTC", time.perf_counter() - t0)
+    meta = RunMeta(model, prompt, args.runs, f"{started:%Y-%m-%d %H:%M} UTC", time.perf_counter() - t0, RETRIEVAL_VERSION)
     failed = write_outputs(args.out, stem_for(args, meta), meta, results, args.fail_under)
     return meta, results, failed
 

@@ -205,6 +205,7 @@ class RunMeta:
     runs: int
     started_at: str
     duration_s: float
+    retrieval: str = "r1"  # runs stored before retrieval was versioned used r1
 
 
 def dump_run(meta: RunMeta, results: list[RunResult]) -> dict:
@@ -229,6 +230,7 @@ def render_report(summary: Summary, meta: RunMeta) -> str:
         "",
         f"- Model: {meta.model}",
         f"- Prompt: {meta.prompt_version}",
+        f"- Retrieval: {meta.retrieval}",
         f"- Runs per case: {meta.runs}",
         f"- Started: {meta.started_at}, took {meta.duration_s:.0f} s",
         f"- Model calls: {summary.total_runs + summary.errors} (API errors: {summary.errors})",

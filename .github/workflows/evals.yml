@@ -55,7 +55,7 @@ jobs:
           echo "gate=$?" >> "$GITHUB_OUTPUT"
       - name: Judge run 1
         if: env.JUDGE == 'true'
-        run: python scripts/judge_run.py ci-reports/raw/*_"$MODEL"_"$PROMPT".json --out ci-reports
+        run: python scripts/judge_run.py ci-reports/raw/*_"$MODEL"_"$PROMPT"_r[0-9]*.json --out ci-reports
       - name: Job summary
         if: always()
         run: cat ci-reports/*.md >> "$GITHUB_STEP_SUMMARY" || true
