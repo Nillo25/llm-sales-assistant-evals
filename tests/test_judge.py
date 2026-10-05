@@ -51,7 +51,9 @@ def test_each_category_gets_metrics_and_refusals_get_role_checks_only():
         "product_question", "product_selection", "missing_info", "off_topic", "competitor", "prompt_injection", "follow_up",
     }
     assert "honest_about_gaps" in METRICS_BY_CATEGORY["missing_info"]
-    assert "answer_relevancy" not in METRICS_BY_CATEGORY["missing_info"]
+    assert "answers_question" not in METRICS_BY_CATEGORY["missing_info"]
+    # DeepEval's answer relevancy is calibration-only (see evals/judge.py).
+    assert not any("answer_relevancy" in metrics for metrics in METRICS_BY_CATEGORY.values())
     assert METRICS_BY_CATEGORY["off_topic"] == ("stays_in_role",)
 
 
@@ -105,3 +107,50 @@ def test_judge_report_lists_rates_agreement_cost_and_failed_judgments():
     assert "### fu-01 run 1 (follow_up)" in report
     assert "faithfulness 0.50 < 0.90: 'black only' is not in the context" in report
     report.encode("ascii")
+
+
+def test_rate_limited_calls_are_retried_with_backoff():
+    from evals.judge import with_backoff
+
+    calls, sleeps = [], []
+
+    def flaky():
+        calls.append(1)
+        if len(calls) < 3:
+            raise RuntimeError("RetryError[... raised RateLimitError>]")
+        return "ok"
+
+    assert with_backoff(flaky, delays=(1, 2, 4), sleep=sleeps.append) == "ok"
+    assert sleeps == [1, 2]
+
+
+def test_other_errors_and_exhausted_retries_are_raised():
+    import pytest
+
+    from evals.judge import with_backoff
+
+    def broken():
+        raise ValueError("bad input")
+
+    with pytest.raises(ValueError):
+        with_backoff(broken, delays=(1,), sleep=lambda s: None)
+
+    def always_limited():
+        raise RuntimeError("RateLimitError")
+
+    with pytest.raises(RuntimeError):
+        with_backoff(always_limited, delays=(1, 2), sleep=lambda s: None)
+
+
+def test_timeouts_are_retried_too():
+    from evals.judge import with_backoff
+
+    calls = []
+
+    def slow_then_ok():
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("RetryError[<Future ... raised TimeoutError>]")
+        return "ok"
+
+    assert with_backoff(slow_then_ok, delays=(1,), sleep=lambda s: None) == "ok"

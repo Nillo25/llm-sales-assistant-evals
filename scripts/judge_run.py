@@ -30,7 +30,7 @@ def main(argv=None) -> int:
     parser.add_argument("raw", type=Path, help="raw run file from scripts/run_evals.py")
     parser.add_argument("--judge-model", default=os.environ.get("JUDGE_MODEL", "gpt-4.1"))
     parser.add_argument("--runs", default="1", help="comma-separated run numbers to judge (default: 1)")
-    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--workers", type=int, default=2, help="parallel judgments (default 2; judge models have low rate limits)")
     parser.add_argument("--out", type=Path, default=ROOT / "reports")
     args = parser.parse_args(argv)
 
