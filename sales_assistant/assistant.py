@@ -27,7 +27,7 @@ def answer(
     model: str,
     prompt_version: str = "v1",
 ) -> Turn:
-    context = build_context(question, products, faq)
+    context = build_context(question, products, faq, history=tuple(history))
     payload = build_payload(
         question, context.faq, context.catalog, list(history), model=model, prompt_version=prompt_version
     )

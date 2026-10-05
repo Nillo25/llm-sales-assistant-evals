@@ -62,3 +62,45 @@ def test_unknown_stored_sku_is_an_error():
 
     with pytest.raises(KeyError, match="AW-NOPE"):
         context_for_skus(("AW-NOPE",), CATALOG, FAQ)
+
+
+# --- r2: word forms and dialog history ------------------------------------------
+
+HISTORY_10K = (
+    ("user", "Do you have a 10K power bank?"),
+    ("assistant", "Yes, the Ampwise 10K Magnetic Power Bank with Stand, for $54.99."),
+)
+
+
+def test_word_forms_match_each_other():
+    # ps-04: "commutes" never reached the earbuds described "for commuting".
+    assert "AW-EB-PRO" in skus(retrieve("A gift for someone who commutes by train", CATALOG))
+    # ps-h1: "wirelessly" never reached the wireless charging pad.
+    assert "AW-WP-15" in skus(retrieve("I want to charge my phone wirelessly on my desk", CATALOG))
+
+
+def test_follow_up_finds_the_product_from_the_dialog():
+    # fu-01: "What colors does it come in?" alone retrieves nothing.
+    assert skus(retrieve("What colors does it come in?", CATALOG, history=HISTORY_10K))[0] == "AW-PB-10M"
+
+
+def test_the_current_question_outweighs_the_history():
+    top = skus(retrieve("And the clear case for iPhone 16?", CATALOG, history=HISTORY_10K))
+    assert top[0] == "AW-CS-CLR-16"
+
+
+def test_only_the_last_two_turns_count():
+    old = (("user", "Tell me about the AirLite earbuds."), ("assistant", "They cost $59.99.")) + HISTORY_10K
+    assert "AW-EB-AIR" not in skus(retrieve("What colors does it come in?", CATALOG, history=old))
+
+
+def test_build_context_passes_the_history_through():
+    context = build_context("What colors does it come in?", CATALOG, FAQ, history=HISTORY_10K)
+    assert context.skus[0] == "AW-PB-10M"
+    assert "Colors: Black, Blue" in context.catalog
+
+
+def test_retrieval_version_is_exposed_for_reports():
+    from sales_assistant.retriever import RETRIEVAL_VERSION
+
+    assert RETRIEVAL_VERSION == "r2"
