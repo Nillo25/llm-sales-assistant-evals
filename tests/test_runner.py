@@ -3,7 +3,7 @@ import itertools
 from evals.cases import EvalCase, Expectations, Suite
 from dataclasses import replace
 
-from evals.runner import RunMeta, dump_run, load_run, render_report, rescore, run_suite, summarize
+from evals.runner import RunMeta, RunResult, dump_run, load_run, render_report, rescore, run_suite, summarize
 from sales_assistant.catalog import load_catalog, load_faq
 from sales_assistant.client import ModelReply
 
@@ -126,3 +126,22 @@ def test_quality_gate():
     assert below_threshold(summary, 0.6)
     assert not below_threshold(summary, 0.5)
     assert not below_threshold(summary, None)
+
+
+def test_rescore_uses_the_stored_context_not_current_retrieval():
+    case = EvalCase(id="fu-09", category="follow_up", question="And the price?")  # retrieves nothing today
+    stored = RunResult("fu-09", "follow_up", "And the price?", 1, text="It is $99.99.", retrieved=("AW-WS-3IN1",))
+    suite = Suite(competitor_brands=(), cases=(case,))
+    [r] = rescore([stored], suite, products=load_catalog(), faq=load_faq(), prompt_version="v1")
+    assert r.retrieved == ("AW-WS-3IN1",)
+    assert all(c.passed for c in r.checks), r.failed_checks
+
+
+def test_runs_record_the_retrieval_version_and_old_runs_default_to_r1():
+    import json
+
+    meta = RunMeta(model="m", prompt_version="v1", runs=1, started_at="t", duration_s=1, retrieval="r2")
+    assert "Retrieval: r2" in render_report(summarize(run(runs=1)), meta)
+    old = dump_run(META, [])
+    del old["meta"]["retrieval"]
+    assert load_run(json.loads(json.dumps(old)))[0].retrieval == "r1"

@@ -36,6 +36,7 @@ from evals.runner import (  # noqa: E402
 from sales_assistant.catalog import load_catalog, load_faq  # noqa: E402
 from sales_assistant.client import OpenAIResponder  # noqa: E402
 from sales_assistant.prompts import available_prompts  # noqa: E402
+from sales_assistant.retriever import RETRIEVAL_VERSION  # noqa: E402
 
 
 def parse_args(argv=None):
@@ -44,23 +45,13 @@ def parse_args(argv=None):
     parser.add_argument("--prompt", default="v1", choices=available_prompts())
     parser.add_argument("--runs", type=int, default=3, help="runs per case (default 3)")
     parser.add_argument("--workers", type=int, default=4, help="parallel requests (default 4)")
-    parser.add_argument("--cases", help="comma-separated case ids and/or categories (default: all)")
+    parser.add_argument("--cases", help="comma-separated case ids, categories and/or splits (dev, holdout); default: all")
     parser.add_argument("--out", type=Path, default=ROOT / "reports")
     parser.add_argument("--rescore", type=Path, metavar="RAW_JSON", help="re-check a stored run with the current checks")
     parser.add_argument("--compare-model", help="also run this model and compare it with --model")
     parser.add_argument("--compare-prompt", choices=available_prompts(), help="also run this prompt and compare")
     parser.add_argument("--fail-under", type=float, metavar="RATE", help="exit 1 if the overall pass rate is below RATE (0-1)")
     return parser.parse_args(argv)
-
-
-def select(suite: Suite, spec: str | None) -> Suite:
-    if not spec:
-        return suite
-    wanted = {s.strip() for s in spec.split(",") if s.strip()}
-    cases = tuple(c for c in suite.cases if c.id in wanted or c.category in wanted)
-    if not cases:
-        sys.exit(f"No cases match {spec!r}")
-    return Suite(suite.competitor_brands, cases)
 
 
 def write_outputs(out: Path, stem: str, meta: RunMeta, results, fail_under: float | None = None) -> bool:
@@ -87,7 +78,10 @@ def main(argv=None) -> int:
     if not os.environ.get("OPENAI_API_KEY"):
         sys.exit("OPENAI_API_KEY is not set: export it or put it in .env")
 
-    suite = select(load_suite(), args.cases)
+    try:
+        suite = load_suite().select(args.cases)
+    except ValueError as exc:
+        sys.exit(str(exc))
     base_meta, base_results, failed = run_config(args, suite, args.model, args.prompt)
     if not (args.compare_model or args.compare_prompt):
         return int(failed)
@@ -102,7 +96,7 @@ def main(argv=None) -> int:
 
 
 def stem_for(args, meta: RunMeta) -> str:
-    stem = f"{meta.started_at[:10]}_{meta.model}_{meta.prompt_version}"
+    stem = f"{meta.started_at[:10]}_{meta.model}_{meta.prompt_version}_{meta.retrieval}"
     return stem + (f"_{args.cases.replace(',', '+')}" if args.cases else "")
 
 
@@ -120,7 +114,7 @@ def run_config(args, suite: Suite, model: str, prompt: str):
         products=load_catalog(),
         faq=load_faq(),
     )
-    meta = RunMeta(model, prompt, args.runs, f"{started:%Y-%m-%d %H:%M} UTC", time.perf_counter() - t0)
+    meta = RunMeta(model, prompt, args.runs, f"{started:%Y-%m-%d %H:%M} UTC", time.perf_counter() - t0, RETRIEVAL_VERSION)
     failed = write_outputs(args.out, stem_for(args, meta), meta, results, args.fail_under)
     return meta, results, failed
 

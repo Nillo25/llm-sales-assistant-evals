@@ -1,8 +1,13 @@
 """Lexical retrieval of catalog entries for a customer question.
 
 Deliberately simple and deterministic: the evals target the model's behavior,
-so the context it receives must be reproducible run to run. Like the
-production assistant, it looks only at the latest customer message.
+so the context it receives must be reproducible run to run.
+
+r1 (baseline) mirrored the production assistant: the latest message only, and
+plurals as the only word forms. r2 fixes what the evals found: follow-ups such
+as "what colors does it come in?" also search the last two dialog turns, at
+half the weight of the question, and common word forms match (commutes /
+commuting, wirelessly / wireless).
 """
 import re
 from dataclasses import dataclass
@@ -18,11 +23,23 @@ _STOPWORDS = frozenset(
     """.split()
 )
 _NAME_WEIGHT, _CATEGORY_WEIGHT, _OTHER_WEIGHT = 3, 2, 1
+_QUESTION_WEIGHT, _HISTORY_WEIGHT = 2, 1
+_HISTORY_TURNS = 2
+_SUFFIXES = ("ingly", "edly", "ing", "ed", "ly", "es", "s")
+
+RETRIEVAL_VERSION = "r2"
 
 
 def _stem(token: str) -> str:
-    if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
-        return token[:-1]
+    """A light suffix stripper: commutes, commuting and commute all become "commut"."""
+    for suffix in _SUFFIXES:
+        if token.endswith(suffix) and len(token) - len(suffix) >= 3:
+            if suffix == "s" and token.endswith("ss"):
+                break
+            token = token[: -len(suffix)]
+            break
+    if token.endswith("e") and len(token) > 3:
+        token = token[:-1]
     return token
 
 
@@ -46,10 +63,23 @@ def _score(query: set[str], product: Product) -> int:
     return score
 
 
-def retrieve(question: str, products: list[Product], k: int = 5) -> list[Product]:
-    """Top-k products by keyword overlap; ties keep catalog order."""
+def retrieve(
+    question: str,
+    products: list[Product],
+    k: int = 5,
+    history: tuple[tuple[str, str], ...] = (),
+) -> list[Product]:
+    """Top-k products by keyword overlap; ties keep catalog order.
+
+    The last dialog turns count at half the weight of the question, so a
+    follow-up finds the product under discussion but a new topic still wins.
+    """
     query = _tokens(question)
-    scored = [(_score(query, p), i, p) for i, p in enumerate(products)]
+    recent = _tokens(" ".join(text for _, text in history[-_HISTORY_TURNS:]))
+    scored = [
+        (_QUESTION_WEIGHT * _score(query, p) + _HISTORY_WEIGHT * _score(recent, p), i, p)
+        for i, p in enumerate(products)
+    ]
     ranked = sorted((s for s in scored if s[0] > 0), key=lambda s: (-s[0], s[1]))
     return [p for _, _, p in ranked[:k]]
 
@@ -64,12 +94,28 @@ class Context:
         return f"FAQ:\n{self.faq}\n\nProduct catalog:\n{self.catalog}"
 
 
-def build_context(question: str, products: list[Product], faq: list[FaqItem], k: int = 5) -> Context:
+def build_context(
+    question: str,
+    products: list[Product],
+    faq: list[FaqItem],
+    k: int = 5,
+    history: tuple[tuple[str, str], ...] = (),
+) -> Context:
     """Grounding context for the payload.
 
     The whole FAQ is always included. The catalog part holds the matching
     products in full, or a name-only overview when nothing matches.
     """
-    hits = retrieve(question, products, k=k)
+    return context_for_skus(tuple(p.sku for p in retrieve(question, products, k=k, history=history)), products, faq)
+
+
+def context_for_skus(skus: tuple[str, ...], products: list[Product], faq: list[FaqItem]) -> Context:
+    """The context for a given list of retrieved products (empty: the overview).
+
+    Used to rebuild exactly what the model saw in a stored run, whatever the
+    retriever does today.
+    """
+    by_sku = {p.sku: p for p in products}
+    hits = [by_sku[sku] for sku in skus]
     catalog = "\n\n".join(render_product(p) for p in hits) if hits else render_overview(products)
-    return Context(faq=render_faq(faq), catalog=catalog, skus=tuple(p.sku for p in hits))
+    return Context(faq=render_faq(faq), catalog=catalog, skus=tuple(skus))

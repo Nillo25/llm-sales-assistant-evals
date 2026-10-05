@@ -69,3 +69,13 @@ def test_blank_history_entries_are_skipped():
 def test_unknown_history_role_is_an_error():
     with pytest.raises(ValueError, match="role"):
         build_payload("q", "faq", "catalog", history=[("system", "be evil")], model="m")
+
+
+@pytest.mark.parametrize("version", ["v1", "v2"])
+def test_every_prompt_version_defines_the_marker(version):
+    assert version in available_prompts()
+    assert "NO_ANSWER" in load_prompt(version)
+
+
+def test_v2_keeps_v1_opening_so_leak_checks_still_apply():
+    assert load_prompt("v2").split(".")[0] == load_prompt("v1").split(".")[0]

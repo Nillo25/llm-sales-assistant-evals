@@ -13,7 +13,7 @@ from evals.calibration import load_calibration
 from evals.cases import load_suite
 from evals.judge import judge_input
 from sales_assistant.catalog import load_catalog, load_faq
-from sales_assistant.retriever import build_context
+from sales_assistant.retriever import context_for_skus
 
 pytestmark = pytest.mark.llm
 
@@ -38,5 +38,6 @@ def test_judge_agrees_with_human_label(item, metric, expected, scorer):
     if metric == "answer_relevancy":
         pytest.skip("calibration-only metric; known to disagree (see reports/judge_calibration_*.md)")
     case = CASES[item.case_id]
-    result = scorer(metric, judge_input(case, item.reply, build_context(case.question, load_catalog(), load_faq())))
+    context = context_for_skus(item.retrieved, load_catalog(), load_faq())
+    result = scorer(metric, judge_input(case, item.reply, context))
     assert result.passed == expected, f"{metric} scored {result.score:.2f}: {result.reason}"

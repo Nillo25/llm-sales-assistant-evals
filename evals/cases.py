@@ -1,11 +1,15 @@
 """Eval cases: loading and validation of evals/cases.yaml."""
 import re
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 
 import yaml
 
 CASES_PATH = Path(__file__).with_name("cases.yaml")
+
+# dev cases are used to find and fix problems; holdout cases are kept apart and only
+# measure the result, so a prompt tuned on dev cannot overfit them.
+SPLITS = ("dev", "holdout")
 
 CATEGORIES = (
     "product_question",
@@ -40,6 +44,7 @@ class EvalCase:
     history: tuple[tuple[str, str], ...] = ()
     expect: Expectations = Expectations()
     note: str = ""
+    split: str = "dev"
 
 
 @dataclass(frozen=True)
@@ -47,6 +52,16 @@ class Suite:
     competitor_brands: tuple[str, ...]
     cases: tuple[EvalCase, ...]
     patterns: dict[str, str] = field(default_factory=dict)
+
+    def select(self, spec: str | None) -> "Suite":
+        """Cases matching any comma-separated case id, category or split; all cases for None."""
+        if not spec:
+            return self
+        wanted = {s.strip() for s in spec.split(",") if s.strip()}
+        cases = tuple(c for c in self.cases if wanted & {c.id, c.category, c.split})
+        if not cases:
+            raise ValueError(f"No cases match {spec!r}")
+        return replace(self, cases=cases)
 
     def resolve(self, refs: tuple[str, ...]) -> dict[str, str]:
         """Map each include/exclude entry to its regex: "@name" refers to a shared pattern."""
@@ -64,6 +79,8 @@ def _parse_case(row: dict, patterns: dict[str, str]) -> EvalCase:
 
     if row.get("category") not in CATEGORIES:
         raise fail(f"unknown category {row.get('category')!r}")
+    if row.get("split", "dev") not in SPLITS:
+        raise fail(f"split must be one of {', '.join(SPLITS)}, got {row.get('split')!r}")
 
     history = []
     for role, text in row.get("history", []):
@@ -94,6 +111,7 @@ def _parse_case(row: dict, patterns: dict[str, str]) -> EvalCase:
         history=tuple(history),
         expect=expect,
         note=row.get("note", ""),
+        split=row.get("split", "dev"),
     )
 
 

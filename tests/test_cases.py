@@ -21,7 +21,7 @@ cases:
 
 
 def test_bundled_suite_covers_every_category():
-    suite = load_suite()
+    suite = load_suite().select("dev")
     assert 40 <= len(suite.cases) <= 50
     ids = [c.id for c in suite.cases]
     assert len(ids) == len(set(ids))
@@ -93,3 +93,32 @@ def test_named_patterns_are_resolved_and_validated(tmp_path):
 
     with pytest.raises(ValueError, match="pq-01.*@nope"):
         load_suite(write(tmp_path, MINIMAL.replace("question: How much is it?", "question: How much is it?\n    expect: {includes: ['@nope']}")))
+
+
+def test_split_defaults_to_dev_and_holdout_is_parsed(tmp_path):
+    suite = load_suite(write(tmp_path, MINIMAL + "  - id: pq-h1\n    category: product_question\n    question: Hi?\n    split: holdout\n"))
+    assert [c.split for c in suite.cases] == ["dev", "holdout"]
+
+
+def test_unknown_split_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match="pq-01.*train"):
+        load_suite(write(tmp_path, MINIMAL + "    split: train\n"))
+
+
+def test_select_by_split_category_or_id():
+    suite = load_suite()
+    holdout = suite.select("holdout")
+    assert holdout.cases and all(c.split == "holdout" for c in holdout.cases)
+    assert all(c.split == "dev" for c in suite.select("dev").cases)
+    picked = suite.select("follow_up,pi-04")
+    assert {c.id for c in picked.cases} >= {"pi-04", "fu-01"}
+    assert all(c.category == "follow_up" or c.id == "pi-04" for c in picked.cases)
+    assert suite.select(None) == suite
+    with pytest.raises(ValueError, match="nope"):
+        suite.select("nope")
+
+
+def test_holdout_set_exists_and_was_kept_apart():
+    holdout = load_suite().select("holdout").cases
+    assert len(holdout) >= 12
+    assert len({c.category for c in holdout}) >= 6

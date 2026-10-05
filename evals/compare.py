@@ -106,7 +106,8 @@ def _delta(bp: int, bt: int, cp: int, ct: int) -> str:
 
 
 def render_comparison(cmp: Comparison, base: RunMeta, cand: RunMeta) -> str:
-    title_a, title_b = f"{base.model} / {base.prompt_version}", f"{cand.model} / {cand.prompt_version}"
+    title_a = f"{base.model} / {base.prompt_version} / {base.retrieval}"
+    title_b = f"{cand.model} / {cand.prompt_version} / {cand.retrieval}"
     lines = [
         f"# Comparison: {title_a} vs {title_b}",
         "",
@@ -114,6 +115,7 @@ def render_comparison(cmp: Comparison, base: RunMeta, cand: RunMeta) -> str:
         "|---|---|---|---|",
         f"| Model | {base.model} | {cand.model} | |",
         f"| Prompt | {base.prompt_version} | {cand.prompt_version} | |",
+        f"| Retrieval | {base.retrieval} | {cand.retrieval} | |",
         f"| Runs per case | {base.runs} | {cand.runs} | |",
         f"| Started | {base.started_at} | {cand.started_at} | |",
         f"| Overall pass rate | {_rate(cmp.base_passed, cmp.base_total)} | {_rate(cmp.cand_passed, cmp.cand_total)} "

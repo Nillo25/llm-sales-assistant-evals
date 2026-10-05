@@ -171,3 +171,15 @@ def test_already_judged_pairs_are_skipped_and_each_new_judgment_is_reported():
     )
     assert [(j.case_id, j.metric) for j in judgments] == [("fu-01", "no_invented_facts"), ("ot-01", "stays_in_role")]
     assert seen == judgments
+
+
+def test_judge_sees_the_stored_context():
+    seen = []
+
+    def recording(metric, ji):
+        seen.append(ji.retrieval_context[1])
+        return ScoreResult(score=1.0, threshold=0.7, passed=True)
+
+    stored = RunResult(OFF_TOPIC.id, OFF_TOPIC.category, OFF_TOPIC.question, 1, text="x", retrieved=("AW-WS-3IN1",))
+    judge_results([stored], SUITE, products=CATALOG, faq=FAQ, scorer=recording, runs=(1,), workers=1)
+    assert "AW-WS-3IN1" in seen[0]

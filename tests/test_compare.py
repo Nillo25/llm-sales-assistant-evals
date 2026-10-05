@@ -50,9 +50,10 @@ def test_case_changes_are_classified():
 
 def test_report():
     base_meta = RunMeta("gpt-a", "v1", 3, "2026-10-05 07:00 UTC", 60)
-    cand_meta = RunMeta("gpt-b", "v1", 3, "2026-10-05 08:00 UTC", 70)
+    cand_meta = RunMeta("gpt-b", "v1", 3, "2026-10-05 08:00 UTC", 70, retrieval="r2")
     report = render_comparison(compare(BASE, CAND), base_meta, cand_meta)
-    assert report.startswith("# Comparison: gpt-a / v1 vs gpt-b / v1")
+    assert report.startswith("# Comparison: gpt-a / v1 / r1 vs gpt-b / v1 / r2")
+    assert "| Retrieval | r1 | r2 | |" in report
     assert "| Overall pass rate | 58.3% (7/12) | 75.0% (9/12) | +16.7 pp |" in report
     assert "| follow_up | 0.0% (0/3) | 100.0% (3/3) | +100.0 pp |" in report
     assert "| prices_grounded | 0 | 2 |" in report
