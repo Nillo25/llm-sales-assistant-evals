@@ -149,7 +149,15 @@ def judge_results(
     scorer: Scorer,
     runs: tuple[int, ...] = (1,),
     workers: int = 4,
+    skip: set[tuple[str, int, str]] = frozenset(),
+    on_judgment: Callable[[Judgment], None] | None = None,
 ) -> list[Judgment]:
+    """Judge the selected runs.
+
+    skip holds (case_id, run, metric) triples judged earlier, so an interrupted
+    run can resume; on_judgment is called as each judgment completes, so
+    progress can be saved before the run ends.
+    """
     cases = {c.id: c for c in suite.cases}
     jobs = []
     for r in results:
@@ -157,15 +165,19 @@ def judge_results(
             continue
         case = cases[r.case_id]
         ji = judge_input(case, r.text, build_context(case.question, products, faq))
-        jobs.extend((r, metric, ji) for metric in METRICS_BY_CATEGORY[r.category])
+        jobs.extend((r, m, ji) for m in METRICS_BY_CATEGORY[r.category] if (r.case_id, r.run, m) not in skip)
 
     def run_one(job) -> Judgment:
         r, metric, ji = job
         try:
             s = scorer(metric, ji)
         except Exception as exc:  # one failed judgment must not stop the rest
-            return Judgment(r.case_id, r.category, r.run, metric, error=f"{type(exc).__name__}: {exc}"[:300])
-        return Judgment(r.case_id, r.category, r.run, metric, s.score, s.threshold, s.passed, s.reason, cost=s.cost)
+            j = Judgment(r.case_id, r.category, r.run, metric, error=f"{type(exc).__name__}: {exc}"[:300])
+        else:
+            j = Judgment(r.case_id, r.category, r.run, metric, s.score, s.threshold, s.passed, s.reason, cost=s.cost)
+        if on_judgment:
+            on_judgment(j)
+        return j
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(run_one, jobs))

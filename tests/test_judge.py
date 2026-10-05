@@ -154,3 +154,20 @@ def test_timeouts_are_retried_too():
         return "ok"
 
     assert with_backoff(slow_then_ok, delays=(1,), sleep=lambda s: None) == "ok"
+
+
+def test_already_judged_pairs_are_skipped_and_each_new_judgment_is_reported():
+    seen = []
+    judgments = judge_results(
+        RESULTS,
+        SUITE,
+        products=CATALOG,
+        faq=FAQ,
+        scorer=fake_scorer,
+        runs=(1,),
+        workers=1,
+        skip={("fu-01", 1, "faithfulness"), ("fu-01", 1, "answers_question")},
+        on_judgment=seen.append,
+    )
+    assert [(j.case_id, j.metric) for j in judgments] == [("fu-01", "no_invented_facts"), ("ot-01", "stays_in_role")]
+    assert seen == judgments
