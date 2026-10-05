@@ -19,17 +19,19 @@ def write(tmp_path, body):
 ITEMS = """
 - id: cal-01
   case: fu-01
+  retrieved: []
   reply: It is available in black.
   expected: {no_invented_facts: fail, answer_relevancy: pass}
 - id: cal-02
   case: pq-03
+  retrieved: [AW-WS-3IN1]
   reply: It costs $99.99.
   expected: {no_invented_facts: pass}
 """
 
 
 def test_bundled_calibration_set_is_valid_and_covers_every_metric():
-    items = load_calibration(SUITE)
+    items = load_calibration(SUITE, products=load_catalog())
     assert len(items) >= 10
     covered = {m for item in items for m in item.expected}
     assert covered == set(ALL_METRICS)
@@ -40,8 +42,9 @@ def test_bundled_calibration_set_is_valid_and_covers_every_metric():
 
 
 def test_labels_are_parsed_as_booleans(tmp_path):
-    items = load_calibration(SUITE, write(tmp_path, ITEMS))
+    items = load_calibration(SUITE, write(tmp_path, ITEMS), products=load_catalog())
     assert items[0].case_id == "fu-01"
+    assert (items[0].retrieved, items[1].retrieved) == ((), ("AW-WS-3IN1",))
     assert items[0].expected == {"no_invented_facts": False, "answer_relevancy": True}
 
 
@@ -52,11 +55,13 @@ def test_labels_are_parsed_as_booleans(tmp_path):
         (ITEMS.replace("answer_relevancy: pass", "politeness: pass"), "cal-01.*politeness"),
         (ITEMS.replace("answer_relevancy: pass", "answer_relevancy: maybe"), "cal-01.*maybe"),
         (ITEMS.replace("id: cal-02", "id: cal-01"), "duplicate.*cal-01"),
+        (ITEMS.replace("retrieved: [AW-WS-3IN1]", "retrieved: [AW-NOPE]"), "cal-02.*AW-NOPE"),
+        (ITEMS.replace("  retrieved: []\n", ""), "cal-01.*retrieved"),
     ],
 )
 def test_invalid_items_are_rejected(tmp_path, bad, message):
     with pytest.raises(ValueError, match=message):
-        load_calibration(SUITE, write(tmp_path, bad))
+        load_calibration(SUITE, write(tmp_path, bad), products=load_catalog())
 
 
 def judge_saying(verdicts):
@@ -67,7 +72,7 @@ def judge_saying(verdicts):
 
 
 def test_agreement_false_alarms_and_misses(tmp_path):
-    items = load_calibration(SUITE, write(tmp_path, ITEMS))
+    items = load_calibration(SUITE, write(tmp_path, ITEMS), products=load_catalog())
     scorer = judge_saying({
         ("It is available in black.", "no_invented_facts"): True,     # miss: should have failed
         ("It is available in black.", "answer_relevancy"): True,      # agrees

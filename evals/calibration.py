@@ -14,8 +14,8 @@ import yaml
 from evals.cases import Suite
 from evals.judge import ALL_METRICS, Scorer, judge_input
 from evals.text import ascii_fold, excerpt
-from sales_assistant.catalog import FaqItem, Product
-from sales_assistant.retriever import build_context
+from sales_assistant.catalog import FaqItem, Product, load_catalog
+from sales_assistant.retriever import context_for_skus
 
 CALIBRATION_PATH = Path(__file__).with_name("judge_calibration.yaml")
 _LABELS = {"pass": True, "fail": False}
@@ -27,6 +27,7 @@ class CalibrationItem:
     case_id: str
     reply: str
     expected: dict[str, bool]
+    retrieved: tuple[str, ...] = ()  # the context the reply was labeled against
     note: str = ""
 
 
@@ -45,8 +46,16 @@ class CalibrationResult:
         return not self.error and self.passed == self.expected
 
 
-def load_calibration(suite: Suite, path: Path = CALIBRATION_PATH) -> list[CalibrationItem]:
+def load_calibration(
+    suite: Suite, path: Path = CALIBRATION_PATH, products: list[Product] | None = None
+) -> list[CalibrationItem]:
+    """Load and validate the labeled set.
+
+    Each item stores the products that were in the context when it was
+    labeled: a label like "this color is invented" only holds for that context.
+    """
     case_ids = {c.id for c in suite.cases}
+    skus = {p.sku for p in (products if products is not None else load_catalog())}
     items, seen = [], set()
     for row in yaml.safe_load(path.read_text(encoding="utf-8")):
         item_id = row["id"]
@@ -62,7 +71,16 @@ def load_calibration(suite: Suite, path: Path = CALIBRATION_PATH) -> list[Calibr
             if label not in _LABELS:
                 raise ValueError(f"{item_id}: label must be pass or fail, got {label}")
             expected[metric] = _LABELS[label]
-        items.append(CalibrationItem(item_id, row["case"], row["reply"].strip(), expected, row.get("note", "")))
+        if "retrieved" not in row:
+            raise ValueError(f"{item_id}: retrieved (the products in the labeled context) is required")
+        unknown = [sku for sku in row["retrieved"] if sku not in skus]
+        if unknown:
+            raise ValueError(f"{item_id}: unknown products in retrieved: {', '.join(unknown)}")
+        items.append(
+            CalibrationItem(
+                item_id, row["case"], row["reply"].strip(), expected, tuple(row["retrieved"]), row.get("note", "")
+            )
+        )
     return items
 
 
@@ -79,7 +97,7 @@ def run_calibration(
     jobs = []
     for item in items:
         case = cases[item.case_id]
-        ji = judge_input(case, item.reply, build_context(case.question, products, faq))
+        ji = judge_input(case, item.reply, context_for_skus(item.retrieved, products, faq))
         jobs.extend((item, metric, expected, ji) for metric, expected in item.expected.items())
 
     def run_one(job) -> CalibrationResult:
