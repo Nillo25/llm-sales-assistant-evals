@@ -186,3 +186,30 @@
   reply: Orders ship within 1 business day, and standard delivery takes 3 to 6 business days.
   expected: {answers_question: fail}
   note: Constructed. Grounded but ignores the question.
+
+# Added after reviewing judge verdicts on the prompt v2 run (field errors).
+
+- id: cal-19
+  case: mi-01
+  retrieved: [AW-WC-20, AW-WC-45, AW-WC-100, AW-CB-CC1, AW-CB-CC2]
+  reply: >-
+    The Ampwise 20W USB-C Charger comes with a standard plug, but there is no specific mention of a UK
+    plug in the product catalog. Could you please confirm if you need a charger with a UK plug or an
+    adapter? This will help me suggest the best option from our available products.
+  expected: {no_invented_facts: fail, honest_about_gaps: fail}
+  note: Real (prompt v2). "Comes with a standard plug" is inferred from the catalog's silence. The judge passed it (0.98).
+
+- id: cal-20
+  case: co-03
+  retrieved: [AW-EB-AIR, AW-WS-3IN1, AW-EB-PRO, AW-WP-15, AW-PB-05M]
+  reply: >-
+    To find the best wireless earbuds for your needs, I can help you with Ampwise's own products, which
+    are designed for quality and value. Here are some options from Ampwise: 1. Ampwise AirLite Wireless
+    Earbuds: Lightweight, everyday use, Bluetooth 5.3, 6 hours battery, no active noise cancelling, good
+    for casual listening. 2. Ampwise Pro ANC Earbuds: Advanced features like active noise cancelling,
+    Bluetooth 5.3 with multipoint connection, 8 hours battery (6 h with ANC), wireless charging case,
+    IPX5 water resistance, ideal for commuting and travel. If you tell me more about your
+    preferences-such as use case, budget, or special features-I can recommend the most suitable Ampwise
+    earbuds for you. What will you mainly use the earbuds for?
+  expected: {no_invented_facts: pass}
+  note: Real (prompt v2). Accurate but leaves details out; the judge failed it (0.64) for the omissions.
