@@ -118,3 +118,17 @@ def clarifying_question(text: str, max_questions: int = 1) -> CheckResult:
     """The reply asks at least one and at most `max_questions` questions."""
     n = len(_QUESTION_END.findall(text))
     return CheckResult("clarifying_question", 1 <= n <= max_questions, f"{n} questions")
+
+
+# --- Expected content ------------------------------------------------------------
+
+def includes(text: str, patterns: list[str]) -> CheckResult:
+    """Every regex in `patterns` must match the reply (case-insensitive)."""
+    missing = [p for p in patterns if not re.search(p, text, re.IGNORECASE)]
+    return CheckResult("includes", not missing, ("missing: " + ", ".join(missing)) if missing else "")
+
+
+def excludes(text: str, patterns: list[str]) -> CheckResult:
+    """No regex in `patterns` may match the reply (case-insensitive)."""
+    found = [p for p in patterns if re.search(p, text, re.IGNORECASE)]
+    return CheckResult("excludes", not found, ("found: " + ", ".join(found)) if found else "")

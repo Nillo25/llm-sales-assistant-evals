@@ -2,6 +2,8 @@ import pytest
 
 from evals.checks import (
     clarifying_question,
+    excludes,
+    includes,
     no_answer_flag,
     no_competitor_brands,
     no_markdown,
@@ -183,3 +185,25 @@ def test_several_questions_fail():
 
 def test_question_mark_inside_url_is_not_a_question():
     assert not clarifying_question("See https://ampwise.example/search?q=case for details.").passed
+
+
+# --- includes / excludes -------------------------------------------------------
+
+def test_includes_passes_when_every_pattern_matches():
+    assert includes("Colors: Black and Blue.", [r"\bblack\b", r"\bblue\b"]).passed
+
+
+def test_includes_reports_missing_patterns_case_insensitively():
+    result = includes("It comes in BLACK.", [r"\bblack\b", r"\bblue\b"])
+    assert not result.passed
+    assert result.detail == r"missing: \bblue\b"
+
+
+def test_excludes_reports_forbidden_patterns_found():
+    result = excludes("It comes in black, white and sage.", [r"\bwhite\b", r"\bred\b", r"\bsage\b"])
+    assert not result.passed
+    assert result.detail == r"found: \bwhite\b, \bsage\b"
+
+
+def test_excludes_passes_when_nothing_forbidden_appears():
+    assert excludes("It comes in black.", [r"\bwhite\b"]).passed
