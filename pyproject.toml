@@ -1,0 +1,13 @@
+[project]
+name = "llm-sales-assistant-evals"
+version = "0.1.0"
+description = "Evaluation suite for an LLM-powered retail sales assistant."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "llm: calls a real LLM API (costs money); opt in with `pytest -m llm`",
+]
+addopts = "-m 'not llm'"
