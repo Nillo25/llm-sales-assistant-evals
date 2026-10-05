@@ -70,6 +70,16 @@ def build_context(question: str, products: list[Product], faq: list[FaqItem], k:
     The whole FAQ is always included. The catalog part holds the matching
     products in full, or a name-only overview when nothing matches.
     """
-    hits = retrieve(question, products, k=k)
+    return context_for_skus(tuple(p.sku for p in retrieve(question, products, k=k)), products, faq)
+
+
+def context_for_skus(skus: tuple[str, ...], products: list[Product], faq: list[FaqItem]) -> Context:
+    """The context for a given list of retrieved products (empty: the overview).
+
+    Used to rebuild exactly what the model saw in a stored run, whatever the
+    retriever does today.
+    """
+    by_sku = {p.sku: p for p in products}
+    hits = [by_sku[sku] for sku in skus]
     catalog = "\n\n".join(render_product(p) for p in hits) if hits else render_overview(products)
-    return Context(faq=render_faq(faq), catalog=catalog, skus=tuple(p.sku for p in hits))
+    return Context(faq=render_faq(faq), catalog=catalog, skus=tuple(skus))

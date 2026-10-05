@@ -12,7 +12,7 @@ from sales_assistant.assistant import answer
 from sales_assistant.catalog import FaqItem, Product
 from sales_assistant.client import Responder
 from sales_assistant.prompts import load_prompt
-from sales_assistant.retriever import build_context
+from sales_assistant.retriever import context_for_skus
 
 _SECRET = re.compile(r"sk-[A-Za-z0-9_\-*]{6,}")
 
@@ -102,9 +102,9 @@ def rescore(
             rescored.append(r)
             continue
         case = cases[r.case_id]
-        context = build_context(case.question, products, faq)
+        context = context_for_skus(r.retrieved, products, faq)
         checks = evaluate(case, r.text, r.is_non_answer, context.as_text(), suite=suite, prompt=prompt)
-        rescored.append(replace(r, checks=tuple(checks), retrieved=context.skus))
+        rescored.append(replace(r, checks=tuple(checks)))
     return rescored
 
 

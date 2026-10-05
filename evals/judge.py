@@ -19,7 +19,7 @@ from evals.cases import EvalCase, Suite
 from evals.runner import RunResult
 from evals.text import ascii_fold, excerpt
 from sales_assistant.catalog import FaqItem, Product
-from sales_assistant.retriever import Context, build_context
+from sales_assistant.retriever import Context, context_for_skus
 
 # DeepEval reads these when it is first imported, so they are set here.
 # Telemetry: DeepEval sends anonymous usage data unless opted out.
@@ -169,7 +169,7 @@ def judge_results(
         if r.error or r.run not in runs:
             continue
         case = cases[r.case_id]
-        ji = judge_input(case, r.text, build_context(case.question, products, faq))
+        ji = judge_input(case, r.text, context_for_skus(r.retrieved, products, faq))
         jobs.extend((r, m, ji) for m in METRICS_BY_CATEGORY[r.category] if (r.case_id, r.run, m) not in skip)
 
     def run_one(job) -> Judgment:

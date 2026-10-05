@@ -1,5 +1,5 @@
 from sales_assistant.catalog import load_catalog, load_faq, render_faq, render_overview, render_product
-from sales_assistant.retriever import build_context, retrieve
+from sales_assistant.retriever import build_context, context_for_skus, retrieve
 
 CATALOG = load_catalog()
 FAQ = load_faq()
@@ -48,3 +48,17 @@ def test_context_falls_back_to_overview_when_nothing_matches():
     context = build_context("Hi there!", CATALOG, FAQ)
     assert context.catalog == render_overview(CATALOG)
     assert context.skus == ()
+
+
+def test_context_can_be_rebuilt_from_stored_skus():
+    # Rescoring and judging old runs must see the context the model saw, not today's retrieval.
+    for question in ("Do you have a 10K power bank?", "Hi there!"):
+        original = build_context(question, CATALOG, FAQ)
+        assert context_for_skus(original.skus, CATALOG, FAQ) == original
+
+
+def test_unknown_stored_sku_is_an_error():
+    import pytest
+
+    with pytest.raises(KeyError, match="AW-NOPE"):
+        context_for_skus(("AW-NOPE",), CATALOG, FAQ)
