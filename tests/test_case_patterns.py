@@ -18,6 +18,9 @@ PATTERNS = yaml.safe_load(CASES_PATH.read_text(encoding="utf-8"))["patterns"]
         "There is no information about bulk discounts.",
         # Missed by the first version of the pattern (first live run, mi-02):
         "There is no mention of aptX or LDAC support in the specifications.",
+        # Missed in the second live run (mi-03, mi-06):
+        "The weight of the case is not provided in the product information.",
+        "The FAQ and product details do not specifically mention compatibility with that watch.",
     ],
 )
 def test_admits_gap_matches_honest_admissions(reply):

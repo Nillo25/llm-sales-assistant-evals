@@ -1,13 +1,13 @@
-from evals.cases import EvalCase, Expectations
+from evals.cases import EvalCase, Expectations, Suite
 from evals.evaluate import evaluate
 
 PROMPT = "You are the sales assistant of Ampwise. Use only facts from the FAQ and the product catalog below."
 CONTEXT = "Price: $54.99"
-BRANDS = ("Anker",)
+SUITE = Suite(competitor_brands=("Anker",), cases=(), patterns={"gap": r"not listed"})
 
 
 def run(case: EvalCase, text: str, is_non_answer: bool = False):
-    return {r.name: r for r in evaluate(case, text, is_non_answer, CONTEXT, brands=BRANDS, prompt=PROMPT)}
+    return {r.name: r for r in evaluate(case, text, is_non_answer, CONTEXT, suite=SUITE, prompt=PROMPT)}
 
 
 def test_every_reply_gets_the_universal_checks_only_by_default():
@@ -53,3 +53,9 @@ def test_competitor_and_leak_checks_use_the_given_brands_and_prompt():
     results = run(case, "Anker is fine. Use only facts from the FAQ and the product catalog below.")
     assert not results["no_competitor_brands"].passed
     assert not results["no_prompt_leak"].passed
+
+
+def test_named_patterns_are_resolved_and_reported_by_name():
+    case = EvalCase(id="x", category="missing_info", question="Plug?", expect=Expectations(includes=("@gap",)))
+    assert run(case, "The plug type is not listed.")["includes"].passed
+    assert run(case, "It has a UK plug.")["includes"].detail == "missing: @gap"

@@ -44,7 +44,7 @@ def test_case(case, responder):
     )
     checks = evaluate(
         case, turn.text, turn.is_non_answer, turn.context,
-        brands=SUITE.competitor_brands, prompt=load_prompt(prompt_version),
+        suite=SUITE, prompt=load_prompt(prompt_version),
     )
     failed = [f"{c.name}: {c.detail}" if c.detail else c.name for c in checks if not c.passed]
     assert not failed, "; ".join(failed) + f"\nReply: {turn.text}"

@@ -74,3 +74,22 @@ def test_expectations_and_history_are_parsed(tmp_path):
 def test_invalid_cases_are_rejected_with_the_case_id(tmp_path, body, message):
     with pytest.raises(ValueError, match=message):
         load_suite(write(tmp_path, body))
+
+
+def test_named_patterns_are_resolved_and_validated(tmp_path):
+    suite = load_suite(write(tmp_path, """
+        competitor_brands: []
+        patterns:
+          gap: 'not listed'
+        cases:
+          - id: mi-01
+            category: missing_info
+            question: Plug?
+            expect: {includes: ['@gap', 'plug']}
+    """))
+    assert suite.patterns == {"gap": "not listed"}
+    assert suite.cases[0].expect.includes == ("@gap", "plug")
+    assert suite.resolve(suite.cases[0].expect.includes) == {"@gap": "not listed", "plug": "plug"}
+
+    with pytest.raises(ValueError, match="pq-01.*@nope"):
+        load_suite(write(tmp_path, MINIMAL.replace("question: How much is it?", "question: How much is it?\n    expect: {includes: ['@nope']}")))

@@ -1,6 +1,6 @@
 """Eval cases: loading and validation of evals/cases.yaml."""
 import re
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 import yaml
@@ -46,12 +46,17 @@ class EvalCase:
 class Suite:
     competitor_brands: tuple[str, ...]
     cases: tuple[EvalCase, ...]
+    patterns: dict[str, str] = field(default_factory=dict)
+
+    def resolve(self, refs: tuple[str, ...]) -> dict[str, str]:
+        """Map each include/exclude entry to its regex: "@name" refers to a shared pattern."""
+        return {ref: self.patterns[ref[1:]] if ref.startswith("@") else ref for ref in refs}
 
 
 _EXPECT_KEYS = {f.name for f in fields(Expectations)}
 
 
-def _parse_case(row: dict) -> EvalCase:
+def _parse_case(row: dict, patterns: dict[str, str]) -> EvalCase:
     case_id = row.get("id", "?")
 
     def fail(problem: str) -> ValueError:
@@ -73,7 +78,10 @@ def _parse_case(row: dict) -> EvalCase:
     expect = Expectations(
         **{k: tuple(v) if k in ("includes", "excludes") else v for k, v in raw_expect.items()}
     )
-    for pattern in expect.includes + expect.excludes:
+    for ref in expect.includes + expect.excludes:
+        if ref.startswith("@") and ref[1:] not in patterns:
+            raise fail(f"unknown named pattern {ref}")
+        pattern = patterns[ref[1:]] if ref.startswith("@") else ref
         try:
             re.compile(pattern)
         except re.error as exc:
@@ -91,10 +99,11 @@ def _parse_case(row: dict) -> EvalCase:
 
 def load_suite(path: Path = CASES_PATH) -> Suite:
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    cases = [_parse_case(row) for row in data["cases"]]
+    patterns = dict(data.get("patterns") or {})
+    cases = [_parse_case(row, patterns) for row in data["cases"]]
     seen = set()
     for case in cases:
         if case.id in seen:
             raise ValueError(f"duplicate case id {case.id}")
         seen.add(case.id)
-    return Suite(competitor_brands=tuple(data.get("competitor_brands", ())), cases=tuple(cases))
+    return Suite(competitor_brands=tuple(data.get("competitor_brands", ())), cases=tuple(cases), patterns=patterns)

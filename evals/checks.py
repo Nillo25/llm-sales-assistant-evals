@@ -4,6 +4,7 @@ Cheap, fast and reproducible: no LLM judge involved. Each check returns a
 CheckResult whose detail explains a failure in a form that fits a report row.
 """
 import re
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -131,13 +132,18 @@ def clarifying_question(text: str, max_questions: int = 1) -> CheckResult:
 
 # --- Expected content ------------------------------------------------------------
 
-def includes(text: str, patterns: list[str]) -> CheckResult:
-    """Every regex in `patterns` must match the reply (case-insensitive)."""
-    missing = [p for p in patterns if not re.search(p, text, re.IGNORECASE)]
+def _labelled(patterns: Iterable[str] | Mapping[str, str]) -> dict[str, str]:
+    """{label: regex}; a bare regex is its own label."""
+    return dict(patterns) if isinstance(patterns, Mapping) else {p: p for p in patterns}
+
+
+def includes(text: str, patterns: Iterable[str] | Mapping[str, str]) -> CheckResult:
+    """Every regex must match the reply (case-insensitive)."""
+    missing = [label for label, rx in _labelled(patterns).items() if not re.search(rx, text, re.IGNORECASE)]
     return CheckResult("includes", not missing, ("missing: " + ", ".join(missing)) if missing else "")
 
 
-def excludes(text: str, patterns: list[str]) -> CheckResult:
-    """No regex in `patterns` may match the reply (case-insensitive)."""
-    found = [p for p in patterns if re.search(p, text, re.IGNORECASE)]
+def excludes(text: str, patterns: Iterable[str] | Mapping[str, str]) -> CheckResult:
+    """No regex may match the reply (case-insensitive)."""
+    found = [label for label, rx in _labelled(patterns).items() if re.search(rx, text, re.IGNORECASE)]
     return CheckResult("excludes", not found, ("found: " + ", ".join(found)) if found else "")

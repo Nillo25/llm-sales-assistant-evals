@@ -46,7 +46,7 @@ def _run_once(case: EvalCase, run: int, suite: Suite, prompt: str, **kwargs) -> 
     except Exception as exc:  # recorded per run; one failed request must not stop the suite
         message = _SECRET.sub("sk-***", f"{type(exc).__name__}: {exc}")
         return RunResult(case.id, case.category, case.question, run, error=message[:300])
-    checks = evaluate(case, turn.text, turn.is_non_answer, turn.context, brands=suite.competitor_brands, prompt=prompt)
+    checks = evaluate(case, turn.text, turn.is_non_answer, turn.context, suite=suite, prompt=prompt)
     return RunResult(
         case.id,
         case.category,

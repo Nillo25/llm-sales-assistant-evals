@@ -6,7 +6,8 @@
 #   no_answer            NO_ANSWER marker expected (true/false); omit if either is fine
 #   options              a 3-7 item recommendation list is expected
 #   clarifying_question  exactly one clarifying question is expected
-#   includes / excludes  case-insensitive regexes that must / must not match
+#   includes / excludes  case-insensitive regexes that must / must not match;
+#                        '@name' refers to a shared regex under `patterns`
 #
 # Regexes are YAML single-quoted: backslashes are literal, '' is a quote.
 
@@ -16,9 +17,9 @@ competitor_brands:
    Amazon, eBay, AliExpress, Walmart, Best Buy, Temu]
 
 patterns:
-  admits_gap: &admits_gap '(don''t|do not|doesn''t|does not) (have|list|include|specify|mention)|not (listed|specified|mentioned|stated|included|available) in|no (information|details|data|info|mention)\b|(isn''t|is not|aren''t|are not) (listed|specified|mentioned|stated)|not sure|(couldn''t|could not) find|unable to (confirm|say)|(can''t|cannot|can not) (confirm|say)'
-  not_included: &not_included '\bno\b|not included|(isn''t|is not) included|(does not|doesn''t) (come|include)|sold separately'
-  other_colors: &other_colors '\b(white|sage|graphite|silver|midnight|clay|clear|red|green|pink|purple|gr[ae]y|navy|gold)\b'
+  admits_gap: '(don''t|do not|doesn''t|does not) (\w+ly )?(have|list|include|specify|mention)|not (listed|specified|mentioned|stated|included|available|provided) in|no (information|details|data|info|mention)\b|(isn''t|is not|aren''t|are not) (listed|specified|mentioned|stated)|not sure|(couldn''t|could not) find|unable to (confirm|say)|(can''t|cannot|can not) (confirm|say)'
+  not_included: '\bno\b|not included|(isn''t|is not) included|(does not|doesn''t) (come|include)|sold separately'
+  other_colors: '\b(white|sage|graphite|silver|midnight|clay|clear|red|green|pink|purple|gr[ae]y|navy|gold)\b'
 
 cases:
   # --- product_question: the answer is in the catalog or FAQ -----------------
@@ -40,7 +41,7 @@ cases:
   - id: pq-04
     category: product_question
     question: Is a power adapter included with the magnetic wireless charging pad?
-    expect: {no_answer: false, includes: [*not_included]}
+    expect: {no_answer: false, includes: ['@not_included']}
 
   - id: pq-05
     category: product_question
@@ -101,36 +102,36 @@ cases:
   - id: mi-01
     category: missing_info
     question: Does the 20W USB-C charger come with a UK plug?
-    expect: {no_answer: false, clarifying_question: true, includes: [*admits_gap]}
+    expect: {no_answer: false, clarifying_question: true, includes: ['@admits_gap']}
     note: Plug types are not in the catalog.
 
   - id: mi-02
     category: missing_info
     question: Do the Pro ANC earbuds support aptX or LDAC?
-    expect: {no_answer: false, clarifying_question: true, includes: [*admits_gap]}
+    expect: {no_answer: false, clarifying_question: true, includes: ['@admits_gap']}
     note: Audio codecs are not in the catalog.
 
   - id: mi-03
     category: missing_info
     question: How much does the clear case for iPhone 16 weigh?
-    expect: {no_answer: false, clarifying_question: true, includes: [*admits_gap]}
+    expect: {no_answer: false, clarifying_question: true, includes: ['@admits_gap']}
 
   - id: mi-04
     category: missing_info
     question: Is the Slim 5K power bank in stock right now?
-    expect: {no_answer: false, clarifying_question: true, includes: [*admits_gap]}
+    expect: {no_answer: false, clarifying_question: true, includes: ['@admits_gap']}
     note: Stock levels are not in the context.
 
   - id: mi-05
     category: missing_info
     question: Do you offer a discount if I order 50 cables for my office?
-    expect: {no_answer: false, clarifying_question: true, includes: [*admits_gap]}
+    expect: {no_answer: false, clarifying_question: true, includes: ['@admits_gap']}
     note: Bulk pricing is not in the FAQ; any discount figure would be invented.
 
   - id: mi-06
     category: missing_info
     question: Is the 3-in-1 station compatible with a Samsung Galaxy Watch?
-    expect: {no_answer: false, clarifying_question: true, includes: [*admits_gap]}
+    expect: {no_answer: false, clarifying_question: true, includes: ['@admits_gap']}
     note: The catalog says "built-in watch charger" without naming compatible watches.
 
   # --- off_topic: decline and set NO_ANSWER ----------------------------------
@@ -249,7 +250,7 @@ cases:
     history:
       - [user, "Do you have a 10K power bank?"]
       - [assistant, "Yes, the Ampwise 10K Magnetic Power Bank with Stand: 10,000 mAh, 15 W magnetic wireless charging and a built-in kickstand, for $54.99."]
-    expect: {no_answer: false, includes: ['\bblack\b', '\bblue\b'], excludes: [*other_colors]}
+    expect: {no_answer: false, includes: ['\bblack\b', '\bblue\b'], excludes: ['@other_colors']}
 
   - id: fu-02
     category: follow_up
@@ -273,7 +274,7 @@ cases:
     history:
       - [user, "I'm looking at the 45W dual charger."]
       - [assistant, "Good choice: the Ampwise 45W Dual USB-C Charger has two USB-C ports and charges a phone and a tablet at once, for $34.99."]
-    expect: {no_answer: false, includes: [*not_included]}
+    expect: {no_answer: false, includes: ['@not_included']}
 
   - id: fu-05
     category: follow_up

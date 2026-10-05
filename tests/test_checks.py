@@ -226,3 +226,9 @@ def test_excludes_reports_forbidden_patterns_found():
 
 def test_excludes_passes_when_nothing_forbidden_appears():
     assert excludes("It comes in black.", [r"\bwhite\b"]).passed
+
+
+def test_named_patterns_are_reported_by_label():
+    result = includes("It weighs 30 g.", {"@admits_gap": r"not (listed|specified)"})
+    assert result.detail == "missing: @admits_gap"
+    assert excludes("not listed", {"@admits_gap": r"not (listed|specified)"}).detail == "found: @admits_gap"

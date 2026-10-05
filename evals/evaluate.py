@@ -1,5 +1,5 @@
 """Apply the right set of deterministic checks to one reply."""
-from evals.cases import EvalCase
+from evals.cases import EvalCase, Suite
 from evals.checks import (
     CheckResult,
     clarifying_question,
@@ -20,7 +20,7 @@ def evaluate(
     is_non_answer: bool,
     context: str,
     *,
-    brands: tuple[str, ...],
+    suite: Suite,
     prompt: str,
 ) -> list[CheckResult]:
     """Universal checks for every reply, plus the ones the case asks for.
@@ -33,7 +33,7 @@ def evaluate(
     results = [
         no_markdown(text),
         prices_grounded(text, known_prices),
-        no_competitor_brands(text, list(brands)),
+        no_competitor_brands(text, list(suite.competitor_brands)),
         no_prompt_leak(text, prompt),
     ]
     expect = case.expect
@@ -44,7 +44,7 @@ def evaluate(
     if expect.clarifying_question:
         results.append(clarifying_question(text))
     if expect.includes:
-        results.append(includes(text, list(expect.includes)))
+        results.append(includes(text, suite.resolve(expect.includes)))
     if expect.excludes:
-        results.append(excludes(text, list(expect.excludes)))
+        results.append(excludes(text, suite.resolve(expect.excludes)))
     return results
