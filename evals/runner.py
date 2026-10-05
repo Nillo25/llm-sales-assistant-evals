@@ -3,7 +3,7 @@ import re
 import unicodedata
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 
 from evals.cases import CATEGORIES, EvalCase, Suite
 from evals.checks import CheckResult
@@ -12,6 +12,7 @@ from sales_assistant.assistant import answer
 from sales_assistant.catalog import FaqItem, Product
 from sales_assistant.client import Responder
 from sales_assistant.prompts import load_prompt
+from sales_assistant.retriever import build_context
 
 _SECRET = re.compile(r"sk-[A-Za-z0-9_\-*]{6,}")
 
@@ -78,6 +79,33 @@ def run_suite(
     kwargs = dict(products=products, faq=faq, responder=responder, model=model, prompt_version=prompt_version)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(lambda job: _run_once(job[0], job[1], suite, prompt, **kwargs), jobs))
+
+
+def rescore(
+    results: list[RunResult],
+    suite: Suite,
+    *,
+    products: list[Product],
+    faq: list[FaqItem],
+    prompt_version: str,
+) -> list[RunResult]:
+    """Re-apply the current checks to stored replies, without calling the model.
+
+    Lets a fix to a check be measured on the very same generations, so its
+    effect is not mixed up with sampling noise.
+    """
+    cases = {c.id: c for c in suite.cases}
+    prompt = load_prompt(prompt_version)
+    rescored = []
+    for r in results:
+        if r.error:
+            rescored.append(r)
+            continue
+        case = cases[r.case_id]
+        context = build_context(case.question, products, faq)
+        checks = evaluate(case, r.text, r.is_non_answer, context.as_text(), suite=suite, prompt=prompt)
+        rescored.append(replace(r, checks=tuple(checks), retrieved=context.skus))
+    return rescored
 
 
 # --- Aggregation --------------------------------------------------------------------
@@ -177,6 +205,18 @@ class RunMeta:
     runs: int
     started_at: str
     duration_s: float
+
+
+def dump_run(meta: RunMeta, results: list[RunResult]) -> dict:
+    return {"meta": asdict(meta), "results": [asdict(r) for r in results]}
+
+
+def load_run(data: dict) -> tuple[RunMeta, list[RunResult]]:
+    results = []
+    for row in data["results"]:
+        checks = tuple(CheckResult(**c) for c in row.pop("checks"))
+        results.append(RunResult(**{**row, "checks": checks, "retrieved": tuple(row["retrieved"])}))
+    return RunMeta(**data["meta"]), results
 
 
 _PUNCT = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"', "\u2013": "-", "\u2014": "-",

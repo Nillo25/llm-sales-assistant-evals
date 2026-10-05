@@ -36,7 +36,7 @@ def answer(
     return Turn(
         text=text,
         is_non_answer=is_non_answer,
-        context=f"FAQ:\n{context.faq}\n\nProduct catalog:\n{context.catalog}",
+        context=context.as_text(),
         retrieved=context.skus,
         reply=reply,
     )

@@ -60,6 +60,9 @@ class Context:
     catalog: str
     skus: tuple[str, ...]  # retrieved products; empty when the overview was used
 
+    def as_text(self) -> str:
+        return f"FAQ:\n{self.faq}\n\nProduct catalog:\n{self.catalog}"
+
 
 def build_context(question: str, products: list[Product], faq: list[FaqItem], k: int = 5) -> Context:
     """Grounding context for the payload.

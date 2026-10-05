@@ -1,7 +1,9 @@
 import itertools
 
 from evals.cases import EvalCase, Expectations, Suite
-from evals.runner import RunMeta, render_report, run_suite, summarize
+from dataclasses import replace
+
+from evals.runner import RunMeta, dump_run, load_run, render_report, rescore, run_suite, summarize
 from sales_assistant.catalog import load_catalog, load_faq
 from sales_assistant.client import ModelReply
 
@@ -92,3 +94,26 @@ def test_report_shows_meta_categories_failed_checks_and_failing_cases():
 def test_report_is_plain_ascii_even_when_replies_are_not():
     report = render_report(summarize(run()), RunMeta(model="m", prompt_version="v1", runs=3, started_at="t", duration_s=1))
     report.encode("ascii")
+
+
+META = RunMeta(model="m", prompt_version="v1", runs=3, started_at="2026-10-05 10:00 UTC", duration_s=12.3)
+
+
+def test_raw_run_round_trips_through_json():
+    import json
+
+    results = run()
+    meta, loaded = load_run(json.loads(json.dumps(dump_run(META, results))))
+    assert meta == META
+    assert loaded == results
+
+
+def test_rescore_reapplies_current_checks_without_calling_the_model():
+    results = run()
+    stricter = replace(
+        SUITE,
+        cases=(replace(SUITE.cases[0], expect=Expectations(includes=(r"88\.88",))),) + SUITE.cases[1:],
+    )
+    rescored = rescore(results, stricter, products=load_catalog(), faq=load_faq(), prompt_version="v1")
+    assert [r.text for r in rescored] == [r.text for r in results]
+    assert summarize(rescored).check_failures["includes"] == (3, ("pq-01",))
