@@ -1,0 +1,200 @@
+# Fictional product catalog of "Ampwise", an invented accessories brand.
+# Any resemblance to real products or companies is coincidental.
+#
+# Deliberate gaps (facts the catalog does NOT contain) used by the
+# missing-information eval cases: wall charger plug types, audio codecs of the
+# earbuds, weight of cases and cables, stock levels, a clear case for models
+# other than iPhone 16, per-product warranty beyond the general FAQ policy.
+
+- sku: AW-PB-05M
+  name: Ampwise Slim 5K Magnetic Power Bank
+  category: Power banks
+  price: "34.99"
+  colors: [Black, White, Sage]
+  specs:
+    Capacity: 5,000 mAh
+    Wireless output: 7.5 W magnetic
+    USB-C port: 20 W input/output
+    Weight: 118 g
+    Compatibility: iPhone 12 to iPhone 17 with magnetic charging
+  description: Pocket-sized magnetic power bank that snaps onto the back of the phone.
+
+- sku: AW-PB-10M
+  name: Ampwise 10K Magnetic Power Bank with Stand
+  category: Power banks
+  price: "54.99"
+  colors: [Black, Blue]
+  specs:
+    Capacity: 10,000 mAh
+    Wireless output: 15 W magnetic (Qi2)
+    USB-C port: 27 W input/output
+    Weight: 210 g
+    Built-in kickstand: Yes
+    Compatibility: iPhone 12 to iPhone 17 with magnetic charging; any USB-C device by cable
+  description: Magnetic power bank with a fold-out stand for hands-free video while charging.
+
+- sku: AW-PB-20C
+  name: Ampwise 20K Travel Power Bank
+  category: Power banks
+  price: "69.99"
+  colors: [Graphite]
+  specs:
+    Capacity: 20,000 mAh (74 Wh)
+    Ports: 2x USB-C, 1x USB-A
+    Max output: 65 W
+    Wireless charging: No
+    Weight: 360 g
+    Air travel: Under 100 Wh, allowed in cabin baggage
+  description: High-capacity power bank that can charge a laptop, a tablet and a phone at once.
+
+- sku: AW-WC-20
+  name: Ampwise 20W USB-C Charger
+  category: Wall chargers
+  price: "19.99"
+  colors: [White]
+  specs:
+    Output: 20 W USB Power Delivery
+    Ports: 1x USB-C
+    Cable included: No
+  description: Compact fast charger for phones and earbuds.
+
+- sku: AW-WC-45
+  name: Ampwise 45W Dual USB-C Charger
+  category: Wall chargers
+  price: "34.99"
+  colors: [White, Black]
+  specs:
+    Output: 45 W total; 30 W + 15 W when both ports are used
+    Ports: 2x USB-C
+    Technology: GaN
+    Cable included: No
+  description: Charges a phone and a tablet at the same time.
+
+- sku: AW-WC-100
+  name: Ampwise 100W 4-Port GaN Charger
+  category: Wall chargers
+  price: "79.99"
+  colors: [Black]
+  specs:
+    Output: Up to 100 W from a single USB-C port
+    Ports: 3x USB-C, 1x USB-A
+    Technology: GaN
+    Cable included: Yes, 1.5 m USB-C to USB-C (100 W)
+  description: One charger for a laptop, a phone, a tablet and earbuds.
+
+- sku: AW-CB-CC1
+  name: Ampwise USB-C to USB-C Cable 1 m
+  category: Cables
+  price: "14.99"
+  colors: [Black, White]
+  specs:
+    Length: 1 m
+    Max power: 60 W
+    Data speed: USB 2.0 (480 Mbps)
+    Jacket: Braided nylon
+  description: Everyday charging cable for phones, tablets and earbuds.
+
+- sku: AW-CB-CC2
+  name: Ampwise USB-C to USB-C Cable 2 m 240W
+  category: Cables
+  price: "24.99"
+  colors: [Black]
+  specs:
+    Length: 2 m
+    Max power: 240 W
+    Data speed: USB 2.0 (480 Mbps)
+    Jacket: Braided nylon
+  description: Long high-power cable for laptops and gaming handhelds.
+
+- sku: AW-CB-CL1
+  name: Ampwise USB-C to Lightning Cable 1 m
+  category: Cables
+  price: "19.99"
+  colors: [Black, White]
+  specs:
+    Length: 1 m
+    Fast charging: Up to 20 W for iPhone 8 to iPhone 14
+    Certification: MFi certified
+  description: Fast-charging cable for iPhones with a Lightning port.
+
+- sku: AW-WS-3IN1
+  name: Ampwise 3-in-1 Wireless Charging Station
+  category: Wireless chargers
+  price: "99.99"
+  colors: [Black, White]
+  specs:
+    Phone: 15 W magnetic (Qi2)
+    Earbuds: 5 W
+    Watch: Built-in watch charger
+    Power adapter included: Yes, 36 W
+  description: Charges a phone, earbuds and a watch on one desk stand.
+
+- sku: AW-WP-15
+  name: Ampwise Magnetic Wireless Charging Pad
+  category: Wireless chargers
+  price: "29.99"
+  colors: [White]
+  specs:
+    Output: 15 W magnetic (Qi2)
+    Cable: 1.2 m, attached
+    Power adapter included: No (20 W or higher recommended)
+  description: Slim magnetic pad for the desk or the nightstand.
+
+- sku: AW-CM-VENT
+  name: Ampwise Magnetic Car Vent Mount with Charging
+  category: Car accessories
+  price: "44.99"
+  colors: [Black]
+  specs:
+    Output: 15 W magnetic wireless
+    Mounting: Air vent clip
+    Car charger included: No (20 W or higher recommended)
+  description: Holds the phone on the air vent and charges it while driving.
+
+- sku: AW-CS-CLR-16
+  name: Ampwise Clear Magnetic Case for iPhone 16
+  category: Cases
+  price: "29.99"
+  colors: [Clear]
+  specs:
+    Material: Polycarbonate back, TPU bumper
+    Drop protection: Tested to 2 m
+    Magnetic ring: Yes
+    Compatibility: iPhone 16 only
+  description: Slim clear case with a built-in magnetic ring for magnetic accessories.
+
+- sku: AW-CS-SIL-17P
+  name: Ampwise Silicone Magnetic Case for iPhone 17 Pro
+  category: Cases
+  price: "34.99"
+  colors: [Midnight, Clay, Sage]
+  specs:
+    Material: Liquid silicone, microfiber lining
+    Magnetic ring: Yes
+    Compatibility: iPhone 17 Pro only
+  description: Soft-touch silicone case with a magnetic ring.
+
+- sku: AW-EB-AIR
+  name: Ampwise AirLite Wireless Earbuds
+  category: Audio
+  price: "59.99"
+  colors: [Black, White]
+  specs:
+    Bluetooth: 5.3
+    Battery: 6 h per charge, 24 h with the case
+    Water resistance: IPX4
+    Active noise cancelling: No
+  description: Lightweight everyday earbuds with a pocket-size case.
+
+- sku: AW-EB-PRO
+  name: Ampwise Pro ANC Earbuds
+  category: Audio
+  price: "99.99"
+  colors: [Black, Silver]
+  specs:
+    Bluetooth: 5.3, multipoint (two devices at once)
+    Battery: 8 h per charge (6 h with ANC on), 32 h with the case
+    Water resistance: IPX5
+    Active noise cancelling: Yes
+    Wireless charging case: Yes
+  description: Noise-cancelling earbuds for commuting and travel.
