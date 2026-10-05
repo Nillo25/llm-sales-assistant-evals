@@ -277,3 +277,10 @@ def render_report(summary: Summary, meta: RunMeta) -> str:
             lines.append(f"  > {excerpt(r.text)}")
         lines.append("")
     return ascii_fold("\n".join(lines).rstrip() + "\n")
+
+
+def below_threshold(summary: Summary, fail_under: float | None) -> bool:
+    """Quality gate for CI: True when the overall pass rate is under fail_under (0-1)."""
+    if fail_under is None or not summary.total_runs:
+        return False
+    return summary.passed_runs / summary.total_runs < fail_under

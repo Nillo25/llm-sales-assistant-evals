@@ -21,6 +21,9 @@ PATTERNS = yaml.safe_load(CASES_PATH.read_text(encoding="utf-8"))["patterns"]
         # Missed in the second live run (mi-03, mi-06):
         "The weight of the case is not provided in the product information.",
         "The FAQ and product details do not specifically mention compatibility with that watch.",
+        # gpt-5.4-mini phrasings (model comparison, mi-04):
+        "I'm sorry, I can't see live stock availability.",
+        "I'm sorry, I can't check real-time stock availability.",
     ],
 )
 def test_admits_gap_matches_honest_admissions(reply):
