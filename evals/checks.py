@@ -105,7 +105,7 @@ def no_prompt_leak(text: str, prompt: str, ngram: int = 8) -> CheckResult:
 
 # --- Shape of the reply ---------------------------------------------------------
 
-_LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+•]|\d{1,2}[.)])[ \t]+\S", re.MULTILINE)
+_LIST_ITEM = re.compile(r"^[ \t]*(?:[-*+\u2022]|\d{1,2}[.)])[ \t]+\S", re.MULTILINE)
 _QUESTION_END = re.compile(r"\?(?=[\s\"')\]]|$)")
 
 
