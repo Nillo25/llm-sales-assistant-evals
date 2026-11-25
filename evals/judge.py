@@ -342,6 +342,10 @@ def render_judge_report(judgments: list[Judgment], results: list[RunResult], met
 
 # --- DeepEval adapter ------------------------------------------------------------------
 
+DEFAULT_JUDGE_MODEL = "claude-sonnet-5-5"  # chosen by calibration, see README
+_TRANSIENT = ("RateLimit", "Timeout", "Overloaded", "InternalServer", "APIConnection")
+
+
 def with_backoff(fn, delays=(10, 30, 60, 120), sleep=time.sleep):
     """Call fn, retrying after each delay on rate limits and timeouts.
 
@@ -352,26 +356,47 @@ def with_backoff(fn, delays=(10, 30, 60, 120), sleep=time.sleep):
         try:
             return fn()
         except Exception as exc:
-            transient = any(word in f"{type(exc).__name__} {exc}" for word in ("RateLimit", "Timeout"))
+            transient = any(word in f"{type(exc).__name__} {exc}" for word in _TRANSIENT)
             if delay is None or not transient:
                 raise
             sleep(delay)
 
 
 class DeepEvalScorer:
-    """Scores one (metric, input) pair with a fresh DeepEval metric; metrics keep state, so none are shared."""
+    """Scores one (metric, input) pair with a fresh DeepEval metric; metrics keep state, so none are shared.
 
-    def __init__(self, model: str, strict_faithfulness: bool = False):
+    A model name starting with "claude-" runs on the Anthropic API through
+    evals.claude_judge; any other name is passed to DeepEval as an OpenAI model.
+    """
+
+    def __init__(
+        self,
+        model: str = DEFAULT_JUDGE_MODEL,
+        strict_faithfulness: bool = False,
+        effort: str = "low",
+        judge_factory=None,
+    ):
         # DeepEval's Faithfulness fails only claims that contradict the context by default;
         # strict mode also fails claims the context does not support.
         self.model = model
         self.strict_faithfulness = strict_faithfulness
+        self.effort = effort
+        self._judge_factory = judge_factory
 
-    def _metric(self, name: str):
+    def _judge_model(self):
+        """A fresh model object per judgment, so its cost counter belongs to that judgment alone."""
+        from evals.claude_judge import ClaudeJudge, is_claude
+
+        if not is_claude(self.model):
+            return self.model
+        factory = self._judge_factory or (lambda: ClaudeJudge(self.model, effort=self.effort))
+        return factory()
+
+    def _metric(self, name: str, model=None):
         from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, GEval
         from deepeval.test_case import SingleTurnParams as P
 
-        common = dict(model=self.model, threshold=THRESHOLDS[name], async_mode=False)
+        common = dict(model=model or self.model, threshold=THRESHOLDS[name], async_mode=False)
         if name == "faithfulness":
             return FaithfulnessMetric(penalize_ambiguous_claims=self.strict_faithfulness, **common)
         if name == "answer_relevancy":
@@ -382,7 +407,8 @@ class DeepEvalScorer:
     def __call__(self, metric: str, ji: JudgeInput) -> ScoreResult:
         from deepeval.test_case import LLMTestCase
 
-        m = self._metric(metric)
+        judge = self._judge_model()
+        m = self._metric(metric, judge)
         test_case = LLMTestCase(
             input=ji.input, actual_output=ji.actual_output, retrieval_context=list(ji.retrieval_context)
         )
@@ -392,5 +418,6 @@ class DeepEvalScorer:
             threshold=m.threshold,
             passed=bool(m.is_successful()),
             reason=m.reason or "",
-            cost=float(getattr(m, "evaluation_cost", 0) or 0),
+            # DeepEval tracks cost only for its own OpenAI models; the Claude judge counts its own tokens.
+            cost=float(getattr(judge, "cost", None) or getattr(m, "evaluation_cost", 0) or 0),
         )

@@ -9,17 +9,21 @@
 | Started | 2026-10-05 11:19 UTC | 2026-10-05 11:21 UTC | |
 | Overall pass rate | 85.3% (110/129) | 89.9% (116/129) | +4.7 pp |
 
+Delta on the 43 shared cases, 95% interval (paired case bootstrap): [-3.9, +13.2], **within noise**.
+The bootstrap redraws the same cases for both runs, so how hard each case is cancels out.
+'Within noise' means this many cases and runs cannot tell the two configurations apart.
+
 ## By category
 
-| Category | Baseline | Candidate | Delta |
-|---|---|---|---|
-| product_question | 100.0% (24/24) | 100.0% (24/24) | +0.0 pp |
-| product_selection | 83.3% (15/18) | 77.8% (14/18) | -5.6 pp |
-| missing_info | 72.2% (13/18) | 83.3% (15/18) | +11.1 pp |
-| off_topic | 100.0% (15/15) | 100.0% (15/15) | +0.0 pp |
-| competitor | 66.7% (10/15) | 80.0% (12/15) | +13.3 pp |
-| prompt_injection | 75.0% (18/24) | 87.5% (21/24) | +12.5 pp |
-| follow_up | 100.0% (15/15) | 100.0% (15/15) | +0.0 pp |
+| Category | Baseline | Candidate | Delta | 95% interval | Verdict |
+|---|---|---|---|---|---|
+| product_question | 100.0% (24/24) | 100.0% (24/24) | +0.0 pp | [+0.0, +0.0] | within noise |
+| product_selection | 83.3% (15/18) | 77.8% (14/18) | -5.6 pp | [-44.4, +22.2] | within noise |
+| missing_info | 72.2% (13/18) | 83.3% (15/18) | +11.1 pp | [-16.7, +50.0] | within noise |
+| off_topic | 100.0% (15/15) | 100.0% (15/15) | +0.0 pp | [+0.0, +0.0] | within noise |
+| competitor | 66.7% (10/15) | 80.0% (12/15) | +13.3 pp | [+0.0, +40.0] | within noise |
+| prompt_injection | 75.0% (18/24) | 87.5% (21/24) | +12.5 pp | [+0.0, +37.5] | within noise |
+| follow_up | 100.0% (15/15) | 100.0% (15/15) | +0.0 pp | [+0.0, +0.0] | within noise |
 
 ## Failed runs by check
 

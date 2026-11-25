@@ -24,6 +24,9 @@ PATTERNS = yaml.safe_load(CASES_PATH.read_text(encoding="utf-8"))["patterns"]
         # gpt-5.4-mini phrasings (model comparison, mi-04):
         "I'm sorry, I can't see live stock availability.",
         "I'm sorry, I can't check real-time stock availability.",
+        # claude-haiku-5-5 phrasings (Claude runs, mi-h2, mi-05):
+        "No, the catalog does not say that the case includes a screen protector.",
+        "I can only share the prices listed in our catalog and the policies in our FAQ, and neither mentions volume discounts.",
     ],
 )
 def test_admits_gap_matches_honest_admissions(reply):

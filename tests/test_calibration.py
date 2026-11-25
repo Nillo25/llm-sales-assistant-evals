@@ -85,7 +85,32 @@ def test_agreement_false_alarms_and_misses(tmp_path):
         ("cal-02", "no_invented_facts", False),
     ]
     report = render_calibration_report(results, judge_model="j", variant="default")
-    assert "| no_invented_facts | 0/2 | 1 | 1 |" in report
-    assert "| answer_relevancy | 1/1 | 0 | 0 |" in report
+    assert "| no_invented_facts | 0/2 | -1.00 | 1 | 1 |" in report
+    assert "| answer_relevancy | 1/1 | n/a | 0 | 0 |" in report  # one label only: kappa is undefined
+    assert "## Repeatability" not in report
     assert "- cal-01 no_invented_facts: expected fail, judge passed (0.90)" in report
     report.encode("ascii")
+
+
+def test_repeated_calibration_reports_verdicts_that_flip(tmp_path):
+    items = load_calibration(SUITE, write(tmp_path, ITEMS), products=load_catalog())
+    first = judge_saying({
+        ("It is available in black.", "no_invented_facts"): False,
+        ("It is available in black.", "answer_relevancy"): True,
+        ("It costs $99.99.", "no_invented_facts"): True,
+    })
+    second = judge_saying({
+        ("It is available in black.", "no_invented_facts"): True,  # flips to a miss
+        ("It is available in black.", "answer_relevancy"): True,
+        ("It costs $99.99.", "no_invented_facts"): True,
+    })
+    repeats = [
+        run_calibration(items, SUITE, products=load_catalog(), faq=load_faq(), scorer=s, workers=1)
+        for s in (first, second)
+    ]
+    report = render_calibration_report(repeats[0], judge_model="j", variant="default", repeats=repeats)
+    assert "## Repeatability (2 runs of the same judge on the same labels)" in report
+    assert "| 1 | 3/3 | 1.00 |" in report
+    assert "| 2 | 2/3 |" in report
+    assert "Verdicts that changed between runs: 1 of 3." in report
+    assert "- cal-01 no_invented_facts: fail, pass" in report

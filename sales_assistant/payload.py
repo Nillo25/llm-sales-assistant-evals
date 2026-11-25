@@ -12,6 +12,7 @@ def build_payload(
     *,
     model: str,
     prompt_version: str = "v1",
+    temperature: float | None = None,
 ) -> dict:
     """Assemble the request: system prompt with grounding context, dialog history, question.
 
@@ -30,4 +31,9 @@ def build_payload(
             messages.append({"role": role, "content": [{"type": _CONTENT_TYPE_BY_ROLE[role], "text": clean}]})
 
     messages.append({"role": "user", "content": [{"type": "input_text", "text": question}]})
-    return {"model": model, "input": messages}
+    payload = {"model": model, "input": messages}
+    # Sent only when set: the API default (1.0) is what production uses unless configured, and
+    # reasoning models reject the parameter.
+    if temperature is not None:
+        payload["temperature"] = temperature
+    return payload

@@ -79,3 +79,8 @@ def test_every_prompt_version_defines_the_marker(version):
 
 def test_v2_keeps_v1_opening_so_leak_checks_still_apply():
     assert load_prompt("v2").split(".")[0] == load_prompt("v1").split(".")[0]
+
+
+def test_temperature_is_sent_only_when_set():
+    assert "temperature" not in build_payload("q", "faq", "cat", model="m")
+    assert build_payload("q", "faq", "cat", model="m", temperature=0.2)["temperature"] == 0.2

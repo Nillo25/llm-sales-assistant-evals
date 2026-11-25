@@ -1,11 +1,12 @@
 """Score a stored eval run with an LLM judge (DeepEval) and write a judge report.
 
     python scripts/judge_run.py reports/raw/<run>.json
-    python scripts/judge_run.py reports/raw/<run>.json --judge-model gpt-4.1 --runs 1,2,3
+    python scripts/judge_run.py reports/raw/<run>.json --judge-model claude-sonnet-5-5 --runs 1,2,3
     python scripts/judge_run.py reports/raw/<run>.json --resume   # continue an interrupted run
 
 Judges stored replies only: the assistant is not called again.
-Needs: pip install -r requirements-judge.txt, and OPENAI_API_KEY (environment or .env).
+Needs: pip install -r requirements-judge.txt, and ANTHROPIC_API_KEY for a Claude judge
+(the default) or OPENAI_API_KEY for an OpenAI one (environment or .env).
 """
 import argparse
 import json
@@ -21,8 +22,10 @@ sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv  # noqa: E402
 
+from evals.claude_judge import is_claude  # noqa: E402
+
 from evals.cases import load_suite  # noqa: E402
-from evals.judge import DeepEvalScorer, Judgment, JudgeMeta, judge_results, render_judge_report  # noqa: E402
+from evals.judge import DEFAULT_JUDGE_MODEL, DeepEvalScorer, Judgment, JudgeMeta, judge_results, render_judge_report  # noqa: E402
 from evals.runner import load_run  # noqa: E402
 from sales_assistant.catalog import load_catalog, load_faq  # noqa: E402
 
@@ -30,7 +33,9 @@ from sales_assistant.catalog import load_catalog, load_faq  # noqa: E402
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("raw", type=Path, help="raw run file from scripts/run_evals.py")
-    parser.add_argument("--judge-model", default=os.environ.get("JUDGE_MODEL", "gpt-4.1"))
+    parser.add_argument("--judge-model", default=os.environ.get("JUDGE_MODEL", DEFAULT_JUDGE_MODEL))
+    parser.add_argument("--effort", default="low", choices=("low", "medium", "high", "xhigh", "max"),
+                        help="thinking effort for a Claude judge (default low)")
     parser.add_argument("--runs", default="1", help="comma-separated run numbers to judge (default: 1)")
     parser.add_argument("--workers", type=int, default=2, help="parallel judgments (default 2; judge models have low rate limits)")
     parser.add_argument("--out", type=Path, default=ROOT / "reports")
@@ -38,12 +43,14 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     load_dotenv(ROOT / ".env")
-    if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("OPENAI_API_KEY is not set: export it or put it in .env")
+    key = "ANTHROPIC_API_KEY" if is_claude(args.judge_model) else "OPENAI_API_KEY"
+    if not os.environ.get(key):
+        sys.exit(f"{key} is not set: export it or put it in .env")
 
     meta, results = load_run(json.loads(args.raw.read_text(encoding="utf-8")))
     runs = tuple(int(r) for r in args.runs.split(","))
-    stem = f"{args.raw.stem}_judge"
+    # Older reports from the gpt-4.1 judge keep their names; every other judge model is named in the file.
+    stem = f"{args.raw.stem}_judge" if args.judge_model == "gpt-4.1" else f"{args.raw.stem}_judge_{args.judge_model}"
     (args.out / "raw").mkdir(parents=True, exist_ok=True)
     raw_path = args.out / "raw" / f"{stem}.json"
 
@@ -71,7 +78,7 @@ def main(argv=None) -> int:
         load_suite(),
         products=load_catalog(),
         faq=load_faq(),
-        scorer=DeepEvalScorer(args.judge_model),
+        scorer=DeepEvalScorer(args.judge_model, effort=args.effort),
         runs=runs,
         workers=args.workers,
         skip={(j.case_id, j.run, j.metric) for j in done},

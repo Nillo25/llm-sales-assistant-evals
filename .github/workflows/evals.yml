@@ -6,7 +6,7 @@ on:
     inputs:
       model:
         description: Model under test
-        default: gpt-4.1-mini
+        default: claude-haiku-5-5
       prompt:
         description: Prompt version
         default: v1
@@ -16,8 +16,15 @@ on:
       fail_under:
         description: Fail the job if the overall pass rate is below this (0-1)
         default: "0.75"
+      adaptive:
+        description: Top up flaky and attack cases to this many runs (0 = off)
+        default: "0"
+      guard:
+        description: Check replies with the output guard
+        type: boolean
+        default: false
       judge:
-        description: Also score run 1 with the LLM judge (slower, about $0.5)
+        description: Also score run 1 with the LLM judge (Claude; slower, costs extra)
         type: boolean
         default: false
 
@@ -31,11 +38,14 @@ jobs:
     timeout-minutes: 60
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      MODEL: ${{ inputs.model || 'gpt-4.1-mini' }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      MODEL: ${{ inputs.model || 'claude-haiku-5-5' }}
       PROMPT: ${{ inputs.prompt || 'v1' }}
       RUNS: ${{ inputs.runs || '3' }}
       FAIL_UNDER: ${{ inputs.fail_under || '0.75' }}
       JUDGE: ${{ inputs.judge || false }}
+      ADAPTIVE: ${{ inputs.adaptive || '0' }}
+      GUARD: ${{ inputs.guard && '--guard' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -50,7 +60,7 @@ jobs:
         run: |
           set +e
           python scripts/run_evals.py --model "$MODEL" --prompt "$PROMPT" --runs "$RUNS" \
-            --fail-under "$FAIL_UNDER" --out ci-reports
+            --adaptive "$ADAPTIVE" $GUARD --fail-under "$FAIL_UNDER" --out ci-reports
           echo "gate=$?" >> "$GITHUB_OUTPUT"
       - name: Judge run 1
         if: env.JUDGE == 'true'
