@@ -1,7 +1,7 @@
 """The judge must agree with human labels (evals/judge_calibration.yaml).
 
 Opt-in because it calls the judge model:  pytest -m llm tests/test_judge_calibration.py
-Judge model comes from JUDGE_MODEL (default gpt-4.1).
+Judge model comes from JUDGE_MODEL (default: evals.judge.DEFAULT_JUDGE_MODEL, a Claude model).
 """
 import os
 from pathlib import Path
@@ -26,11 +26,14 @@ PAIRS = [(item, metric, expected) for item in load_calibration(SUITE) for metric
 def scorer():
     pytest.importorskip("deepeval")
     load_dotenv(Path(__file__).resolve().parents[1] / ".env")
-    if not os.environ.get("OPENAI_API_KEY"):
-        pytest.skip("OPENAI_API_KEY is not set")
-    from evals.judge import DeepEvalScorer
+    from evals.claude_judge import is_claude
+    from evals.judge import DEFAULT_JUDGE_MODEL, DeepEvalScorer
 
-    return DeepEvalScorer(os.environ.get("JUDGE_MODEL", "gpt-4.1"))
+    model = os.environ.get("JUDGE_MODEL", DEFAULT_JUDGE_MODEL)
+    key = "ANTHROPIC_API_KEY" if is_claude(model) else "OPENAI_API_KEY"
+    if not os.environ.get(key):
+        pytest.skip(f"{key} is not set")
+    return DeepEvalScorer(model)
 
 
 @pytest.mark.parametrize("item, metric, expected", PAIRS, ids=[f"{i.id}-{m}" for i, m, _ in PAIRS])

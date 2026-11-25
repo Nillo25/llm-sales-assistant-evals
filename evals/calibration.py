@@ -13,6 +13,7 @@ import yaml
 
 from evals.cases import Suite
 from evals.judge import ALL_METRICS, Scorer, judge_input
+from evals.stats import cohen_kappa
 from evals.text import ascii_fold, excerpt
 from sales_assistant.catalog import FaqItem, Product, load_catalog
 from sales_assistant.retriever import context_for_skus
@@ -40,6 +41,7 @@ class CalibrationResult:
     score: float | None = None
     reason: str = ""
     error: str = ""
+    cost: float = 0.0
 
     @property
     def agrees(self) -> bool:
@@ -106,22 +108,49 @@ def run_calibration(
             s = scorer(metric, ji)
         except Exception as exc:
             return CalibrationResult(item.id, metric, expected, error=f"{type(exc).__name__}: {exc}"[:300])
-        return CalibrationResult(item.id, metric, expected, s.passed, s.score, s.reason)
+        return CalibrationResult(item.id, metric, expected, s.passed, s.score, s.reason, cost=s.cost)
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         return list(pool.map(run_one, jobs))
 
 
-def render_calibration_report(results: list[CalibrationResult], judge_model: str, variant: str) -> str:
+def kappa(results: list[CalibrationResult]) -> float | None:
+    """Cohen's kappa between the judge and the human labels; errors are left out."""
+    return cohen_kappa([(r.expected, bool(r.passed)) for r in results if not r.error])
+
+
+def _kappa_text(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f}"
+
+
+def flips(repeats: list[list[CalibrationResult]]) -> list[tuple[str, str, list[bool | None]]]:
+    """(item, metric, verdict per repeat) wherever the judge changed its verdict between repeats."""
+    by_key: dict[tuple[str, str], list[bool | None]] = {}
+    for results in repeats:
+        for r in results:
+            by_key.setdefault((r.item_id, r.metric), []).append(None if r.error else r.passed)
+    return [(i, m, v) for (i, m), v in by_key.items() if len(set(v)) > 1]
+
+
+def render_calibration_report(
+    results: list[CalibrationResult],
+    judge_model: str,
+    variant: str,
+    repeats: list[list[CalibrationResult]] | None = None,
+) -> str:
+    """results is the first repeat; repeats, when given, holds all of them (results included)."""
     agreeing = sum(r.agrees for r in results)
     lines = [
         f"# Judge calibration: {judge_model} ({variant})",
         "",
-        f"- Agreement with human labels: {agreeing}/{len(results)}",
+        f"- Agreement with human labels: {agreeing}/{len(results)}, Cohen's kappa {_kappa_text(kappa(results))}",
         "- False alarm: the human says pass, the judge fails it. Miss: the human says fail, the judge passes it.",
+        "- Kappa corrects agreement for chance: 1 is perfect, 0 is no better than guessing from the base rate.",
+        f"- Judge cost: ${sum(r.cost for rs in (repeats or [results]) for r in rs):.2f}"
+        + (f" for {len(repeats)} runs" if repeats and len(repeats) > 1 else ""),
         "",
-        "| Metric | Agreement | False alarms | Misses |",
-        "|---|---|---|---|",
+        "| Metric | Agreement | Kappa | False alarms | Misses |",
+        "|---|---|---|---|---|",
     ]
     for metric in ALL_METRICS:
         rows = [r for r in results if r.metric == metric]
@@ -129,7 +158,30 @@ def render_calibration_report(results: list[CalibrationResult], judge_model: str
             continue
         false_alarms = sum(1 for r in rows if not r.error and r.expected and not r.passed)
         misses = sum(1 for r in rows if not r.error and not r.expected and r.passed)
-        lines.append(f"| {metric} | {sum(r.agrees for r in rows)}/{len(rows)} | {false_alarms} | {misses} |")
+        lines.append(
+            f"| {metric} | {sum(r.agrees for r in rows)}/{len(rows)} | {_kappa_text(kappa(rows))} "
+            f"| {false_alarms} | {misses} |"
+        )
+
+    if repeats and len(repeats) > 1:
+        changed = flips(repeats)
+        lines += [
+            "",
+            f"## Repeatability ({len(repeats)} runs of the same judge on the same labels)",
+            "",
+            "A judge is a sampled model too: the same reply can get a different verdict on another run.",
+            "",
+            "| Run | Agreement | Kappa |",
+            "|---|---|---|",
+        ]
+        for n, rep_results in enumerate(repeats, 1):
+            lines.append(
+                f"| {n} | {sum(r.agrees for r in rep_results)}/{len(rep_results)} | {_kappa_text(kappa(rep_results))} |"
+            )
+        lines += ["", f"Verdicts that changed between runs: {len(changed)} of {len(results)}.", ""]
+        for item_id, metric, verdicts in changed:
+            shown = ", ".join("error" if v is None else ("pass" if v else "fail") for v in verdicts)
+            lines.append(f"- {item_id} {metric}: {shown}")
 
     lines += ["", "## Disagreements", ""]
     disagreements = [r for r in results if not r.agrees]

@@ -34,6 +34,7 @@ class Expectations:
     clarifying_question: bool = False
     includes: tuple[str, ...] = ()
     excludes: tuple[str, ...] = ()
+    not_asserted: tuple[str, ...] = ()  # may be quoted in a refusal, never stated
 
 
 @dataclass(frozen=True)
@@ -93,9 +94,9 @@ def _parse_case(row: dict, patterns: dict[str, str]) -> EvalCase:
     if unknown:
         raise fail(f"unknown expect keys: {', '.join(sorted(unknown))}")
     expect = Expectations(
-        **{k: tuple(v) if k in ("includes", "excludes") else v for k, v in raw_expect.items()}
+        **{k: tuple(v) if k in ("includes", "excludes", "not_asserted") else v for k, v in raw_expect.items()}
     )
-    for ref in expect.includes + expect.excludes:
+    for ref in expect.includes + expect.excludes + expect.not_asserted:
         if ref.startswith("@") and ref[1:] not in patterns:
             raise fail(f"unknown named pattern {ref}")
         pattern = patterns[ref[1:]] if ref.startswith("@") else ref

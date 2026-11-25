@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from evals.cases import CATEGORIES
 from evals.runner import RunMeta, RunResult
+from evals.stats import Interval, paired_bootstrap
 from evals.text import ascii_fold
 
 
@@ -14,6 +15,7 @@ class CategoryDelta:
     base_total: int
     cand_passed: int
     cand_total: int
+    interval: Interval | None = None  # paired case bootstrap on the shared cases
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,8 @@ class Comparison:
     categories: list[CategoryDelta]
     checks: list[CheckDelta]
     changes: list[CaseChange]
+    interval: Interval | None = None
+    shared_cases: int = 0
 
 
 def _per_case(results: list[RunResult]) -> dict[str, tuple[str, int, int]]:
@@ -67,6 +71,13 @@ def _failed_checks(results: list[RunResult]) -> Counter:
     return Counter(c.name for r in results if not r.error for c in r.failed_checks)
 
 
+def _interval(b: dict, c: dict, category: str | None = None) -> Interval | None:
+    shared = [k for k in b if k in c and (category is None or b[k][0] == category)]
+    if not shared:
+        return None
+    return paired_bootstrap({k: b[k][1:] for k in shared}, {k: c[k][1:] for k in shared})
+
+
 def compare(base: list[RunResult], cand: list[RunResult]) -> Comparison:
     b, c = _per_case(base), _per_case(cand)
     categories = []
@@ -75,7 +86,8 @@ def compare(base: list[RunResult], cand: list[RunResult]) -> Comparison:
         cs = [v for v in c.values() if v[0] == category]
         if bs or cs:
             categories.append(CategoryDelta(
-                category, sum(v[1] for v in bs), sum(v[2] for v in bs), sum(v[1] for v in cs), sum(v[2] for v in cs)
+                category, sum(v[1] for v in bs), sum(v[2] for v in bs), sum(v[1] for v in cs), sum(v[2] for v in cs),
+                _interval(b, c, category),
             ))
     bf, cf = _failed_checks(base), _failed_checks(cand)
     checks = [CheckDelta(n, bf[n], cf[n]) for n in sorted(bf | cf, key=lambda n: -(bf[n] + cf[n]))]
@@ -92,6 +104,8 @@ def compare(base: list[RunResult], cand: list[RunResult]) -> Comparison:
         categories=categories,
         checks=checks,
         changes=changes,
+        interval=_interval(b, c),
+        shared_cases=sum(1 for k in b if k in c),
     )
 
 
@@ -103,6 +117,16 @@ def _delta(bp: int, bt: int, cp: int, ct: int) -> str:
     if not bt or not ct:
         return "n/a"
     return f"{100 * (cp / ct - bp / bt):+.1f} pp"
+
+
+def _verdict(i: Interval | None) -> str:
+    if i is None:
+        return "n/a"
+    return "likely real" if i.excludes_zero else "within noise"
+
+
+def _ci(i: Interval | None) -> str:
+    return f"[{100 * i.low:+.1f}, {100 * i.high:+.1f}]" if i else "n/a"
 
 
 def render_comparison(cmp: Comparison, base: RunMeta, cand: RunMeta) -> str:
@@ -121,15 +145,21 @@ def render_comparison(cmp: Comparison, base: RunMeta, cand: RunMeta) -> str:
         f"| Overall pass rate | {_rate(cmp.base_passed, cmp.base_total)} | {_rate(cmp.cand_passed, cmp.cand_total)} "
         f"| {_delta(cmp.base_passed, cmp.base_total, cmp.cand_passed, cmp.cand_total)} |",
         "",
+        f"Delta on the {cmp.shared_cases} shared cases, 95% interval (paired case bootstrap): "
+        f"{_ci(cmp.interval)}, **{_verdict(cmp.interval)}**.",
+        "The bootstrap redraws the same cases for both runs, so how hard each case is cancels out.",
+        "'Within noise' means this many cases and runs cannot tell the two configurations apart.",
+        "",
         "## By category",
         "",
-        "| Category | Baseline | Candidate | Delta |",
-        "|---|---|---|---|",
+        "| Category | Baseline | Candidate | Delta | 95% interval | Verdict |",
+        "|---|---|---|---|---|---|",
     ]
     for d in cmp.categories:
         lines.append(
             f"| {d.category} | {_rate(d.base_passed, d.base_total)} | {_rate(d.cand_passed, d.cand_total)} "
-            f"| {_delta(d.base_passed, d.base_total, d.cand_passed, d.cand_total)} |"
+            f"| {_delta(d.base_passed, d.base_total, d.cand_passed, d.cand_total)} | {_ci(d.interval)} "
+            f"| {_verdict(d.interval)} |"
         )
     lines += ["", "## Failed runs by check", "", "| Check | Baseline | Candidate |", "|---|---|---|"]
     lines += [f"| {d.name} | {d.base_failed} | {d.cand_failed} |" for d in cmp.checks] or ["| none | 0 | 0 |"]

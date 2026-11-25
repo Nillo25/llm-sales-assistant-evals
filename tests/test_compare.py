@@ -57,6 +57,8 @@ def test_report():
     assert "| Overall pass rate | 58.3% (7/12) | 75.0% (9/12) | +16.7 pp |" in report
     assert "| follow_up | 0.0% (0/3) | 100.0% (3/3) | +100.0 pp |" in report
     assert "| prices_grounded | 0 | 2 |" in report
+    assert "shared cases, 95% interval (paired case bootstrap)" in report
+    assert "| Category | Baseline | Candidate | Delta | 95% interval | Verdict |" in report
     assert "- fu-01 (follow_up): 0/3 -> 3/3" in report.split("### Fixed")[1].split("###")[0]
     assert "- pq-01 (product_question): 3/3 -> 1/3" in report.split("### Regressed")[1].split("###")[0]
     assert "- pi-03 (prompt_injection): 1/3 -> 2/3" in report.split("### Other changes")[1]

@@ -1,12 +1,15 @@
 """Run the eval suite against a live model and write a Markdown report.
 
-    python scripts/run_evals.py --model gpt-4.1-mini --prompt v1 --runs 3
+    python scripts/run_evals.py --model claude-haiku-5-5 --prompt v1 --runs 3
     python scripts/run_evals.py --cases follow_up,pi-04 --runs 5
     python scripts/run_evals.py --rescore reports/raw/<run>.json   # re-check stored replies, no API calls
     python scripts/run_evals.py --compare-model gpt-5.4-mini           # baseline vs candidate, plus a comparison
     python scripts/run_evals.py --fail-under 0.75                       # exit 1 if the pass rate is lower (CI gate)
+    python scripts/run_evals.py --adaptive 10                           # top up flaky and attack cases to 10 runs
+    python scripts/run_evals.py --temperature 0.3                       # sample at the production temperature
 
-Reads OPENAI_API_KEY from the environment or from a .env file in the repo root.
+Claude models (the default) need ANTHROPIC_API_KEY, OpenAI models OPENAI_API_KEY, from the
+environment or a .env file in the repo root.
 """
 import argparse
 import json
@@ -17,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MODEL = "claude-haiku-5-5"
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv  # noqa: E402
@@ -24,7 +28,9 @@ from dotenv import load_dotenv  # noqa: E402
 from evals.cases import Suite, load_suite  # noqa: E402
 from evals.compare import compare, render_comparison  # noqa: E402
 from evals.runner import (  # noqa: E402
+    ATTACK_CATEGORIES,
     RunMeta,
+    adaptive_jobs,
     below_threshold,
     dump_run,
     load_run,
@@ -34,14 +40,15 @@ from evals.runner import (  # noqa: E402
     summarize,
 )
 from sales_assistant.catalog import load_catalog, load_faq  # noqa: E402
-from sales_assistant.client import OpenAIResponder  # noqa: E402
+from sales_assistant.client import responder_for  # noqa: E402
 from sales_assistant.prompts import available_prompts  # noqa: E402
 from sales_assistant.retriever import RETRIEVAL_VERSION  # noqa: E402
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--model", default=os.environ.get("EVAL_MODEL", "gpt-4.1-mini"))
+    parser.add_argument("--model", default=os.environ.get("EVAL_MODEL", DEFAULT_MODEL))
+    parser.add_argument("--effort", default="low", help="thinking effort for a Claude assistant (default low)")
     parser.add_argument("--prompt", default="v1", choices=available_prompts())
     parser.add_argument("--runs", type=int, default=3, help="runs per case (default 3)")
     parser.add_argument("--workers", type=int, default=4, help="parallel requests (default 4)")
@@ -51,6 +58,16 @@ def parse_args(argv=None):
     parser.add_argument("--compare-model", help="also run this model and compare it with --model")
     parser.add_argument("--compare-prompt", choices=available_prompts(), help="also run this prompt and compare")
     parser.add_argument("--fail-under", type=float, metavar="RATE", help="exit 1 if the overall pass rate is below RATE (0-1)")
+    parser.add_argument("--guard", action="store_true", help="check replies with the output guard before scoring them")
+    parser.add_argument("--temperature", type=float, help="sampling temperature (default: the API default, 1.0)")
+    parser.add_argument(
+        "--adaptive", type=int, metavar="MAX_RUNS",
+        help="after --runs, top up flaky cases and attack cases to MAX_RUNS runs each",
+    )
+    parser.add_argument(
+        "--adaptive-categories", default=",".join(ATTACK_CATEGORIES),
+        help="categories topped up even when stable (default: prompt_injection; empty for flaky cases only)",
+    )
     return parser.parse_args(argv)
 
 
@@ -75,8 +92,10 @@ def main(argv=None) -> int:
         return int(write_outputs(args.out, args.rescore.stem, meta, results, args.fail_under))
 
     load_dotenv(ROOT / ".env")
-    if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("OPENAI_API_KEY is not set: export it or put it in .env")
+    for model in filter(None, (args.model, args.compare_model)):
+        key = "ANTHROPIC_API_KEY" if model.startswith("claude-") else "OPENAI_API_KEY"
+        if not os.environ.get(key):
+            sys.exit(f"{key} is not set (needed for {model}): export it or put it in .env")
 
     try:
         suite = load_suite().select(args.cases)
@@ -97,6 +116,12 @@ def main(argv=None) -> int:
 
 def stem_for(args, meta: RunMeta) -> str:
     stem = f"{meta.started_at[:10]}_{meta.model}_{meta.prompt_version}_{meta.retrieval}"
+    if meta.temperature is not None:
+        stem += f"_t{meta.temperature:g}"
+    if meta.max_runs:
+        stem += f"_adaptive{meta.max_runs}"
+    if meta.guard:
+        stem += "_guard"
     return stem + (f"_{args.cases.replace(',', '+')}" if args.cases else "")
 
 
@@ -104,17 +129,21 @@ def run_config(args, suite: Suite, model: str, prompt: str):
     print(f"{len(suite.cases)} cases x {args.runs} runs = {len(suite.cases) * args.runs} calls to {model} (prompt {prompt})")
     started = datetime.now(timezone.utc)
     t0 = time.perf_counter()
-    results = run_suite(
-        suite,
-        responder=OpenAIResponder(),
-        model=model,
-        prompt_version=prompt,
-        runs=args.runs,
-        workers=args.workers,
-        products=load_catalog(),
-        faq=load_faq(),
+    common = dict(
+        responder=responder_for(model, effort=args.effort), model=model, prompt_version=prompt, workers=args.workers,
+        products=load_catalog(), faq=load_faq(), temperature=args.temperature, guard=args.guard,
     )
-    meta = RunMeta(model, prompt, args.runs, f"{started:%Y-%m-%d %H:%M} UTC", time.perf_counter() - t0, RETRIEVAL_VERSION)
+    results = run_suite(suite, runs=args.runs, **common)
+    if args.adaptive and args.adaptive > args.runs:
+        categories = tuple(c for c in args.adaptive_categories.split(",") if c)
+        jobs = adaptive_jobs(results, suite, max_runs=args.adaptive, categories=categories)
+        print(f"Adaptive: {len(jobs)} more calls for flaky cases and {', '.join(categories) or 'no categories'}")
+        results += run_suite(suite, runs=0, jobs=jobs, **common)
+    meta = RunMeta(
+        model, prompt, args.runs, f"{started:%Y-%m-%d %H:%M} UTC", time.perf_counter() - t0, RETRIEVAL_VERSION,
+        temperature=args.temperature, max_runs=args.adaptive if args.adaptive and args.adaptive > args.runs else None,
+        guard=args.guard,
+    )
     failed = write_outputs(args.out, stem_for(args, meta), meta, results, args.fail_under)
     return meta, results, failed
 

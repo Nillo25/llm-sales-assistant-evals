@@ -9,6 +9,7 @@ from evals.checks import (
     no_competitor_brands,
     no_markdown,
     no_prompt_leak,
+    not_asserted,
     option_count,
     prices_grounded,
 )
@@ -50,4 +51,6 @@ def evaluate(
         results.append(includes(text, suite.resolve(expect.includes)))
     if expect.excludes:
         results.append(excludes(text, suite.resolve(expect.excludes)))
+    if expect.not_asserted:
+        results.append(not_asserted(text, suite.resolve(expect.not_asserted)))
     return results
